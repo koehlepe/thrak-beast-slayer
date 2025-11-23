@@ -204,11 +204,12 @@ class Enemy(pygame.sprite.Sprite):
 
 class BronzeWarrior(pygame.sprite.Sprite):
     """Bronze Age Warrior - enemy in platformer phase"""
-    def __init__(self, x, y, warrior_type="standard"):
+    def __init__(self, x, y, warrior_type="standard", move_direction=-1):
         super().__init__()
         self.warrior_type = warrior_type
         self.health = 2 if warrior_type == "heavy" else 1
         self.speed = 1.5 if warrior_type == "heavy" else 2.5
+        self.direction = move_direction  # Direction to move (-1 for left, 1 for right)
         
         if warrior_type == "heavy":
             self.image = pygame.Surface((50, 60), pygame.SRCALPHA)
@@ -250,12 +251,13 @@ class BronzeWarrior(pygame.sprite.Sprite):
         self.jump_timer = 0
 
     def update(self, platforms):
-        # Horizontal movement (patrol with direction)
+        # Horizontal movement (constant direction, no bouncing)
         self.rect.x += self.direction * self.speed
         
-        # Bounce off screen edges
-        if self.rect.left < 0 or self.rect.right > SCREEN_WIDTH:
-            self.direction *= -1
+        # Remove if off left side of level
+        if self.rect.right < 0:
+            self.kill()
+            return
         
         # Gravity and jumping
         self.velocity_y += self.gravity
@@ -387,11 +389,11 @@ class BronzePlayer(pygame.sprite.Sprite):
             self.velocity_y = -12
             self.on_ground = False
         
-        # Screen bounds
+        # Level bounds - allow player to move across entire level
         if self.rect.left < 0:
             self.rect.left = 0
-        if self.rect.right > SCREEN_WIDTH:
-            self.rect.right = SCREEN_WIDTH
+        if self.rect.right > bronze_level_width:
+            self.rect.right = bronze_level_width
         
         # Fall off screen
         if self.rect.top > SCREEN_HEIGHT:
@@ -413,18 +415,18 @@ class BronzePlayer(pygame.sprite.Sprite):
                 return pygame.Rect(self.rect.left - 25, self.rect.centery - 15, 30, 30)
         return pygame.Rect(0, 0, 0, 0)  # No collision when not swinging
     
-    def draw_sword_swing(self, surface):
+    def draw_sword_swing(self, surface, camera_offset=0):
         """Draw the sword swing effect"""
         if self.sword_swing and self.swing_timer > 0:
             # Draw sword arc
             if self.facing == 1:  # Facing right
-                center = (self.rect.right, self.rect.centery)
+                center = (self.rect.right - camera_offset, self.rect.centery)
                 radius = 25
                 angle = (1 - self.swing_timer / self.swing_duration) * 1.57  # 90 degrees in radians
                 end_x = int(center[0] + radius * math.sin(angle))
                 end_y = int(center[1] - radius * math.cos(angle))
             else:  # Facing left
-                center = (self.rect.left, self.rect.centery)
+                center = (self.rect.left - camera_offset, self.rect.centery)
                 radius = 25
                 angle = (1 - self.swing_timer / self.swing_duration) * 1.57
                 end_x = int(center[0] - radius * math.sin(angle))
@@ -579,6 +581,8 @@ bronze_platforms = pygame.sprite.Group()
 bronze_warriors = pygame.sprite.Group()
 bronze_player = None
 bronze_wave = 1
+bronze_level_width = 3000  # Total level width
+bronze_camera_x = 0  # Camera position for scrolling
 
 def draw_dev_menu():
     """Developer mode menu for testing phases"""
@@ -598,66 +602,103 @@ def draw_dev_menu():
     screen.blit(option3, (SCREEN_WIDTH // 2 - option3.get_width() // 2, 450))
 
 def create_bronze_platforms():
-    """Create platforms for Bronze Age platformer"""
+    """Create platforms for Bronze Age side-scrolling level"""
     platforms = pygame.sprite.Group()
-    # Bottom platform
-    platforms.add(Platform(0, SCREEN_HEIGHT - 50, SCREEN_WIDTH, 50))
-    # Staircase pattern
-    platforms.add(Platform(100, SCREEN_HEIGHT - 120, 150, 20))
-    platforms.add(Platform(300, SCREEN_HEIGHT - 180, 150, 20))
-    platforms.add(Platform(500, SCREEN_HEIGHT - 240, 150, 20))
-    platforms.add(Platform(650, SCREEN_HEIGHT - 160, 120, 20))
-    # Floating platforms
-    platforms.add(Platform(150, 300, 120, 20))
-    platforms.add(Platform(500, 250, 120, 20))
+    # Create a long level with platforms spread throughout
+    platform_data = [
+        # (x, y, width, height)
+        (0, SCREEN_HEIGHT - 50, 400, 50),  # Starting platform
+        (400, SCREEN_HEIGHT - 100, 150, 20),
+        (600, SCREEN_HEIGHT - 150, 150, 20),
+        (850, SCREEN_HEIGHT - 80, 200, 20),
+        (1100, SCREEN_HEIGHT - 120, 150, 20),
+        (1300, 300, 200, 20),  # Higher platform
+        (1600, SCREEN_HEIGHT - 100, 150, 20),
+        (1800, SCREEN_HEIGHT - 160, 200, 20),
+        (2050, SCREEN_HEIGHT - 100, 150, 20),
+        (2250, SCREEN_HEIGHT - 200, 150, 20),
+        (2450, SCREEN_HEIGHT - 100, 150, 20),
+        (2700, SCREEN_HEIGHT - 50, 300, 50),  # Final platform
+    ]
+    for x, y, width, height in platform_data:
+        platforms.add(Platform(x, y, width, height))
     return platforms
 
 def spawn_bronze_warriors(wave):
-    """Spawn Bronze Age warriors"""
+    """Spawn Bronze Age warriors from the right side"""
     num_warriors = min(2 + wave, 5)
     for i in range(num_warriors):
         warrior_type = "heavy" if i % 3 == 0 else "standard"
-        x = random.randint(100, SCREEN_WIDTH - 100)
+        # Spawn from right side, spread across the level
+        x = bronze_camera_x + SCREEN_WIDTH + random.randint(0, 300)
         y = 100
-        warrior = BronzeWarrior(x, y, warrior_type)
+        warrior = BronzeWarrior(x, y, warrior_type, move_direction=-1)  # Moving left
         bronze_warriors.add(warrior)
 
 def draw_bronze_game():
     """Draw Bronze Age side-scrolling platformer phase"""
+    global bronze_camera_x
+    
     # Sky background - gradient
     for y in range(SCREEN_HEIGHT):
         color_val = int(120 + (y / SCREEN_HEIGHT) * 40)
         pygame.draw.line(screen, (color_val, color_val - 40, color_val - 80), (0, y), (SCREEN_WIDTH, y))
     
     # Draw sun
-    pygame.draw.circle(screen, (255, 220, 0), (SCREEN_WIDTH - 100, 80), 50)
+    sun_x = 600 - int(bronze_camera_x * 0.3)
+    pygame.draw.circle(screen, (255, 220, 0), (sun_x, 80), 50)
     
-    # Draw clouds
-    for i in range(3):
-        cloud_x = (i * 300) % SCREEN_WIDTH
-        pygame.draw.ellipse(screen, (200, 200, 200), (cloud_x, 60 + i * 40, 100, 30))
-        pygame.draw.ellipse(screen, (210, 210, 210), (cloud_x + 30, 50 + i * 40, 80, 40))
+    # Draw clouds parallax
+    for i in range(5):
+        cloud_x = (i * 300 - int(bronze_camera_x * 0.2)) % (SCREEN_WIDTH + 200) - 100
+        pygame.draw.ellipse(screen, (200, 200, 200), (cloud_x, 60 + (i % 3) * 40, 100, 30))
+        pygame.draw.ellipse(screen, (210, 210, 210), (cloud_x + 30, 50 + (i % 3) * 40, 80, 40))
     
-    # Draw platforms
-    bronze_platforms.draw(screen)
+    # Update camera to follow player
+    target_camera = bronze_player.rect.centerx - SCREEN_WIDTH // 3
+    bronze_camera_x = max(0, min(target_camera, bronze_level_width - SCREEN_WIDTH))
     
-    # Draw warriors
-    bronze_warriors.draw(screen)
+    # Draw platforms with camera offset
+    for platform in bronze_platforms:
+        screen_rect = platform.rect.copy()
+        screen_rect.x -= int(bronze_camera_x)
+        pygame.draw.rect(screen, (160, 100, 60), screen_rect)
+        # Add platform detail
+        pygame.draw.line(screen, (140, 80, 40), (screen_rect.x, screen_rect.y), (screen_rect.x + screen_rect.width, screen_rect.y), 2)
+    
+    # Draw level end flag
+    flag_x = bronze_level_width - int(bronze_camera_x) - 50
+    if flag_x > -50 and flag_x < SCREEN_WIDTH + 50:
+        pygame.draw.rect(screen, (180, 100, 50), (flag_x, SCREEN_HEIGHT - 150, 40, 140))
+        pygame.draw.polygon(screen, (255, 100, 0), [(flag_x + 40, SCREEN_HEIGHT - 150), (flag_x + 40, SCREEN_HEIGHT - 110), (flag_x + 100, SCREEN_HEIGHT - 130)])
+    
+    # Draw warriors with camera offset
+    for warrior in bronze_warriors:
+        warrior_screen_pos = warrior.rect.copy()
+        warrior_screen_pos.x -= int(bronze_camera_x)
+        if -50 < warrior_screen_pos.x < SCREEN_WIDTH + 50:
+            screen.blit(warrior.image, warrior_screen_pos)
     
     # Draw player
-    screen.blit(bronze_player.image, bronze_player.rect)
+    player_screen_rect = bronze_player.rect.copy()
+    player_screen_rect.x -= int(bronze_camera_x)
+    screen.blit(bronze_player.image, player_screen_rect)
     
-    # Draw sword swing effect
-    bronze_player.draw_sword_swing(screen)
+    # Draw sword swing effect with camera offset
+    if bronze_player.sword_swing and bronze_player.swing_timer > 0:
+        bronze_player.draw_sword_swing(screen, int(bronze_camera_x))
     
     # Draw HUD
     health_text = font_small.render(f"Health: {bronze_player.health}", True, (255, 255, 255))
     score_text = font_small.render(f"Score: {bronze_player.score}", True, (255, 255, 255))
-    wave_text = font_small.render(f"Bronze Age - Wave: {bronze_wave}", True, (255, 200, 0))
-    phase_text = font_small.render("PLATFORMER | ARROWS to Move | SPACE to Jump | S to Swing Sword", True, (150, 200, 255))
+    progress = int((bronze_player.rect.x / bronze_level_width) * 100)
+    progress_text = font_small.render(f"Progress: {progress}%", True, (100, 255, 100))
+    wave_text = font_small.render(f"Wave: {bronze_wave}", True, (255, 200, 0))
+    phase_text = font_small.render("SIDE-SCROLLER | Reach the End! | ARROWS to Move | SPACE to Jump | S to Swing", True, (150, 200, 255))
     screen.blit(health_text, (10, 10))
     screen.blit(score_text, (10, 40))
-    screen.blit(wave_text, (SCREEN_WIDTH - 300, 10))
+    screen.blit(progress_text, (SCREEN_WIDTH - 250, 10))
+    screen.blit(wave_text, (SCREEN_WIDTH - 250, 40))
     screen.blit(phase_text, (10, SCREEN_HEIGHT - 25))
 
 while running:
@@ -762,11 +803,24 @@ while running:
             draw_game()
 
         elif game_phase == PHASE_BRONZE_AGE:
-            # BRONZE AGE PHASE (platformer)
+            # BRONZE AGE PHASE (side-scrolling platformer)
             platform_list = list(bronze_platforms.sprites())
             alive = bronze_player.update(platform_list)
             if not alive:
                 game_state = GAME_OVER
+            
+            # Check if reached level end
+            if bronze_player.rect.x >= bronze_level_width - 100:
+                # Level complete - move to next wave or end game
+                bronze_wave += 1
+                if bronze_wave > 3:  # 3 waves of Bronze Age
+                    game_state = GAME_OVER  # Victory state
+                else:
+                    # Reset for next wave
+                    bronze_player.rect.x = 0
+                    bronze_camera_x = 0
+                    bronze_warriors.empty()
+                    spawn_bronze_warriors(bronze_wave)
             
             # Update sword swing timer
             if bronze_player.sword_swing:
@@ -777,6 +831,10 @@ while running:
             # Update warriors
             for warrior in bronze_warriors:
                 warrior.update(platform_list)
+            
+            # Periodically spawn more warriors if cleared out
+            if len(bronze_warriors) == 0:
+                spawn_bronze_warriors(bronze_wave)
             
             # Check sword-warrior collisions (swing attacks)
             sword_rect = bronze_player.get_sword_rect()
@@ -790,11 +848,6 @@ while running:
                 bronze_player.health -= 1
                 if bronze_player.health <= 0:
                     game_state = GAME_OVER
-            
-            # Wave complete
-            if len(bronze_warriors) == 0:
-                bronze_wave += 1
-                spawn_bronze_warriors(bronze_wave)
             
             draw_bronze_game()
 
