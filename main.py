@@ -415,6 +415,11 @@ class BronzePlayer(pygame.sprite.Sprite):
                 return pygame.Rect(self.rect.left - 25, self.rect.centery - 15, 30, 30)
         return pygame.Rect(0, 0, 0, 0)  # No collision when not swinging
     
+    def get_feet_rect(self):
+        """Get the hitbox for the player's feet (for stomp damage)"""
+        # Bottom portion of the player for detecting stomps on enemies
+        return pygame.Rect(self.rect.left, self.rect.bottom - 10, self.rect.width, 10)
+    
     def draw_sword_swing(self, surface, camera_offset=0):
         """Draw the sword swing effect"""
         if self.sword_swing and self.swing_timer > 0:
@@ -604,21 +609,23 @@ def draw_dev_menu():
 def create_bronze_platforms():
     """Create platforms for Bronze Age side-scrolling level"""
     platforms = pygame.sprite.Group()
-    # Create a long level with platforms spread throughout
+    # Create a long level with solid ground and strategic gaps
     platform_data = [
         # (x, y, width, height)
+        # Main ground level - solid base with only a few gaps for jumping
         (0, SCREEN_HEIGHT - 50, 400, 50),  # Starting platform
-        (400, SCREEN_HEIGHT - 100, 150, 20),
-        (600, SCREEN_HEIGHT - 150, 150, 20),
-        (850, SCREEN_HEIGHT - 80, 200, 20),
-        (1100, SCREEN_HEIGHT - 120, 150, 20),
-        (1300, 300, 200, 20),  # Higher platform
-        (1600, SCREEN_HEIGHT - 100, 150, 20),
-        (1800, SCREEN_HEIGHT - 160, 200, 20),
-        (2050, SCREEN_HEIGHT - 100, 150, 20),
-        (2250, SCREEN_HEIGHT - 200, 150, 20),
-        (2450, SCREEN_HEIGHT - 100, 150, 20),
-        (2700, SCREEN_HEIGHT - 50, 300, 50),  # Final platform
+        (500, SCREEN_HEIGHT - 50, 300, 50),  # Gap here, must jump (400-500)
+        (850, SCREEN_HEIGHT - 50, 400, 50),  # Solid ground
+        (1350, SCREEN_HEIGHT - 50, 150, 50),  # Small section
+        (1600, SCREEN_HEIGHT - 50, 200, 50),  # Gap here, must jump (1500-1600)
+        (1850, SCREEN_HEIGHT - 50, 500, 50),  # Solid ground
+        (2450, SCREEN_HEIGHT - 50, 300, 50),  # Gap here, must jump (2350-2450)
+        (2800, SCREEN_HEIGHT - 50, 200, 50),  # Final platform
+        
+        # Some elevated platforms for variety and challenge
+        (600, SCREEN_HEIGHT - 150, 150, 20),   # Elevated platform
+        (1200, SCREEN_HEIGHT - 120, 100, 20),  # Elevated platform
+        (2200, SCREEN_HEIGHT - 140, 120, 20),  # Elevated platform
     ]
     for x, y, width, height in platform_data:
         platforms.add(Platform(x, y, width, height))
@@ -842,6 +849,15 @@ while running:
                 if warrior.rect.colliderect(sword_rect):
                     if warrior.take_damage():
                         bronze_player.score += warrior.points
+            
+            # Check stomp collisions (jumping on enemy heads)
+            feet_rect = bronze_player.get_feet_rect()
+            for warrior in bronze_warriors:
+                if feet_rect.colliderect(warrior.rect) and bronze_player.velocity_y > 0:
+                    # Player is falling and hit enemy from above
+                    warrior.take_damage()
+                    bronze_player.score += warrior.points
+                    bronze_player.velocity_y = -8  # Bounce the player up
             
             # Check warrior-player collision (damage)
             if pygame.sprite.spritecollide(bronze_player, bronze_warriors, False):
