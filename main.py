@@ -19,6 +19,7 @@ font_small = pygame.font.Font(None, 24)
 # Game phases
 PHASE_STONE_AGE = 0
 PHASE_BRONZE_AGE = 1
+PHASE_IRON_AGE = 2
 
 class Player(pygame.sprite.Sprite):
     def __init__(self):
@@ -438,7 +439,264 @@ class BronzePlayer(pygame.sprite.Sprite):
                 end_y = int(center[1] - radius * math.cos(angle))
             pygame.draw.line(surface, (210, 160, 100), center, (end_x, end_y), 5)
 
+class IronPlayer(pygame.sprite.Sprite):
+    """Iron Age Player - 2D top-down movement"""
+    def __init__(self):
+        super().__init__()
+        self.image = pygame.Surface((40, 40), pygame.SRCALPHA)
+        self.draw_sprite()
+        self.rect = self.image.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2))
+        self.speed = 4
+        self.health = 5
+        self.max_health = 5
+        self.score = 0
+        self.facing = (1, 0)  # (x, y) direction
+        
+    def draw_sprite(self):
+        """Draw the Iron Age player sprite"""
+        self.image = pygame.Surface((40, 40), pygame.SRCALPHA)
+        # Helmet with better iron look
+        pygame.draw.circle(self.image, (150, 150, 150), (20, 12), 10)
+        pygame.draw.polygon(self.image, (120, 120, 120), [(12, 12), (10, 5), (14, 8)])
+        pygame.draw.polygon(self.image, (120, 120, 120), [(28, 12), (30, 5), (26, 8)])
+        # Body armor
+        pygame.draw.rect(self.image, (180, 180, 180), (8, 22, 24, 14))
+        pygame.draw.line(self.image, (100, 100, 100), (8, 28), (32, 28), 2)
+        # Legs
+        pygame.draw.line(self.image, (80, 80, 80), (15, 36), (12, 38), 2)
+        pygame.draw.line(self.image, (80, 80, 80), (25, 36), (28, 38), 2)
+        
+    def update(self, obstacles):
+        keys = pygame.key.get_pressed()
+        dx = 0
+        dy = 0
+        
+        if keys[pygame.K_UP] or keys[pygame.K_w]:
+            dy = -self.speed
+            self.facing = (0, -1)
+        if keys[pygame.K_DOWN] or keys[pygame.K_s]:
+            dy = self.speed
+            self.facing = (0, 1)
+        if keys[pygame.K_LEFT] or keys[pygame.K_a]:
+            dx = -self.speed
+            self.facing = (-1, 0)
+        if keys[pygame.K_RIGHT] or keys[pygame.K_d]:
+            dx = self.speed
+            self.facing = (1, 0)
+        
+        # Diagonal movement
+        if (keys[pygame.K_UP] or keys[pygame.K_w]) and (keys[pygame.K_LEFT] or keys[pygame.K_a]):
+            self.facing = (-1, -1)
+        elif (keys[pygame.K_UP] or keys[pygame.K_w]) and (keys[pygame.K_RIGHT] or keys[pygame.K_d]):
+            self.facing = (1, -1)
+        elif (keys[pygame.K_DOWN] or keys[pygame.K_s]) and (keys[pygame.K_LEFT] or keys[pygame.K_a]):
+            self.facing = (-1, 1)
+        elif (keys[pygame.K_DOWN] or keys[pygame.K_s]) and (keys[pygame.K_RIGHT] or keys[pygame.K_d]):
+            self.facing = (1, 1)
+        
+        # Move with collision detection
+        new_x = self.rect.x + dx
+        new_y = self.rect.y + dy
+        
+        # Boundary checking
+        if 0 <= new_x <= iron_map_width - self.rect.width:
+            self.rect.x = new_x
+        if 0 <= new_y <= iron_map_height - self.rect.height:
+            self.rect.y = new_y
+
+class IronEnemy(pygame.sprite.Sprite):
+    """Iron Age Enemy - involved in turn-based battles"""
+    def __init__(self, x, y, enemy_type="warrior"):
+        super().__init__()
+        self.enemy_type = enemy_type
+        self.health = {"warrior": 10, "knight": 15, "warlord": 20}.get(enemy_type, 10)
+        self.max_health = self.health
+        self.attack_power = {"warrior": 2, "knight": 3, "warlord": 4}.get(enemy_type, 2)
+        self.defense = {"warrior": 1, "knight": 2, "warlord": 3}.get(enemy_type, 1)
+        self.points = {"warrior": 50, "knight": 100, "warlord": 200}.get(enemy_type, 50)
+        
+        self.image = pygame.Surface((40, 40), pygame.SRCALPHA)
+        self.draw_sprite()
+        self.rect = self.image.get_rect(topleft=(x, y))
+        
+    def draw_sprite(self):
+        """Draw the enemy sprite based on type"""
+        self.image = pygame.Surface((40, 40), pygame.SRCALPHA)
+        if self.enemy_type == "warrior":
+            # Iron warrior
+            pygame.draw.circle(self.image, (150, 120, 80), (20, 12), 9)
+            pygame.draw.rect(self.image, (180, 140, 60), (8, 22, 24, 14))
+            pygame.draw.polygon(self.image, (200, 200, 200), [(15, 22), (12, 15), (18, 18)])
+        elif self.enemy_type == "knight":
+            # Iron knight with full armor
+            pygame.draw.rect(self.image, (160, 160, 160), (10, 8, 20, 14))
+            pygame.draw.circle(self.image, (160, 160, 160), (20, 10), 3)
+            pygame.draw.rect(self.image, (140, 140, 140), (8, 22, 24, 14))
+            pygame.draw.rect(self.image, (100, 100, 100), (8, 22, 24, 4))
+        elif self.enemy_type == "warlord":
+            # Iron warlord with crown
+            pygame.draw.rect(self.image, (150, 150, 150), (10, 5, 20, 12))
+            pygame.draw.polygon(self.image, (255, 200, 0), [(12, 5), (14, 0), (16, 5)])
+            pygame.draw.polygon(self.image, (255, 200, 0), [(24, 5), (26, 0), (28, 5)])
+            pygame.draw.rect(self.image, (130, 130, 130), (8, 17, 24, 20))
+            pygame.draw.line(self.image, (100, 100, 100), (8, 25), (32, 25), 2)
+
+class BattleState:
+    """Manages a turn-based battle between player and enemy group"""
+    def __init__(self, enemies_list):
+        self.player_health = iron_player.health
+        self.player_max_health = iron_player.max_health
+        self.enemies = enemies_list.copy()
+        self.current_turn = "player"  # "player" or "enemy"
+        self.battle_log = ["Battle Started!", "Your turn!"]
+        self.battle_over = False
+        self.player_won = False
+        self.selected_action = None  # "attack", "defend", "heal"
+        self.defend_mode = False
+        
+    def player_attack(self):
+        """Player attacks a random enemy"""
+        if not self.enemies:
+            return
+        target = random.choice(self.enemies)
+        damage = random.randint(3, 6)
+        target.health -= damage
+        self.battle_log.append(f"You attack for {damage} damage!")
+        if target.health <= 0:
+            self.battle_log.append(f"Enemy {target.enemy_type} defeated!")
+            self.enemies.remove(target)
+        self.end_player_turn()
+        
+    def player_defend(self):
+        """Player defends (reduces damage next turn)"""
+        self.battle_log.append("You take a defensive stance!")
+        self.defend_mode = True
+        self.end_player_turn()
+        
+    def player_heal(self):
+        """Player heals some health"""
+        heal_amount = random.randint(2, 4)
+        self.player_health = min(self.player_health + heal_amount, self.player_max_health)
+        self.battle_log.append(f"You heal for {heal_amount} health!")
+        self.end_player_turn()
+        
+    def end_player_turn(self):
+        """End player turn and start enemy turn"""
+        if not self.enemies:
+            self.battle_over = True
+            self.player_won = True
+            self.battle_log.append("Victory! All enemies defeated!")
+            return
+        self.current_turn = "enemy"
+        self.enemy_attack()
+        
+    def enemy_attack(self):
+        """All remaining enemies attack"""
+        for enemy in self.enemies:
+            damage = random.randint(1, enemy.attack_power + 2) - 1  # Min 1 damage
+            self.player_health -= max(1, damage)
+            self.battle_log.append(f"Enemy {enemy.enemy_type} attacks for {damage} damage!")
+        
+        if self.player_health <= 0:
+            self.battle_over = True
+            self.player_won = False
+            self.battle_log.append("You were defeated!")
+        else:
+            self.current_turn = "player"
+            self.battle_log.append("Your turn!")
+
+def spawn_iron_enemies():
+    """Spawn enemy groups throughout the Iron Age map"""
+    for i in range(5):
+        x = random.randint(100, iron_map_width - 150)
+        y = random.randint(100, iron_map_height - 150)
+        
+        group_size = random.randint(1, 3)
+        enemy_group = []
+        for j in range(group_size):
+            enemy_type = random.choice(["warrior", "knight", "warlord"])
+            enemy = IronEnemy(x + j * 50, y, enemy_type)
+            enemy_group.append(enemy)
+            iron_enemies.add(enemy)
+        
+        iron_enemy_groups.append(enemy_group)
+
+def draw_iron_game():
+    """Draw the Iron Age game screen"""
+    # Draw grass background
+    screen.fill((60, 120, 60))
+    
+    # Draw simple grid pattern for terrain
+    for x in range(0, iron_map_width, 50):
+        pygame.draw.line(screen, (40, 100, 40), (x - iron_camera_x, 0), (x - iron_camera_x, SCREEN_HEIGHT), 1)
+    for y in range(0, iron_map_height, 50):
+        pygame.draw.line(screen, (40, 100, 40), (0, y - iron_camera_y), (SCREEN_WIDTH, y - iron_camera_y), 1)
+    
+    # Draw enemies
+    for enemy in iron_enemies:
+        enemy_screen_x = enemy.rect.x - iron_camera_x
+        enemy_screen_y = enemy.rect.y - iron_camera_y
+        if -50 < enemy_screen_x < SCREEN_WIDTH and -50 < enemy_screen_y < SCREEN_HEIGHT:
+            screen.blit(enemy.image, (enemy_screen_x, enemy_screen_y))
+    
+    # Draw player at center
+    player_screen_x = iron_player.rect.x - iron_camera_x
+    player_screen_y = iron_player.rect.y - iron_camera_y
+    screen.blit(iron_player.image, (player_screen_x, player_screen_y))
+    
+    # Draw UI
+    health_text = font_small.render(f"Health: {iron_player.health}/{iron_player.max_health}", True, (255, 255, 255))
+    score_text = font_small.render(f"Score: {iron_player.score}", True, (255, 255, 255))
+    screen.blit(health_text, (10, 10))
+    screen.blit(score_text, (10, 40))
+
+def draw_battle_screen(battle):
+    """Draw the turn-based battle screen"""
+    screen.fill((40, 40, 60))
+    
+    # Draw player info
+    pygame.draw.rect(screen, (100, 150, 100), (10, 10, 300, 100))
+    player_text = font_medium.render("Your Status", True, (255, 255, 255))
+    health_text = font_small.render(f"Health: {battle.player_health}/{battle.player_max_health}", True, (255, 255, 255))
+    screen.blit(player_text, (20, 20))
+    screen.blit(health_text, (20, 50))
+    
+    # Draw enemies info
+    pygame.draw.rect(screen, (150, 100, 100), (10, 130, 300, 150))
+    enemies_title = font_medium.render("Enemies", True, (255, 255, 255))
+    screen.blit(enemies_title, (20, 140))
+    for i, enemy in enumerate(battle.enemies):
+        enemy_text = font_small.render(f"{enemy.enemy_type}: {enemy.health}/{enemy.max_health} HP", True, (255, 255, 255))
+        screen.blit(enemy_text, (20, 170 + i * 25))
+    
+    # Draw battle log
+    pygame.draw.rect(screen, (80, 80, 80), (330, 10, 460, 270))
+    log_title = font_medium.render("Battle Log", True, (255, 255, 255))
+    screen.blit(log_title, (340, 20))
+    
+    # Show last few log messages
+    for i, message in enumerate(battle.battle_log[-6:]):
+        msg_text = font_small.render(message, True, (200, 200, 200))
+        screen.blit(msg_text, (340, 50 + i * 30))
+    
+    # Draw action buttons
+    pygame.draw.rect(screen, (100, 100, 150), (10, 300, 200, 50))
+    attack_text = font_small.render("SPACE - Attack", True, (255, 255, 255))
+    screen.blit(attack_text, (20, 310))
+    
+    pygame.draw.rect(screen, (100, 150, 100), (220, 300, 200, 50))
+    heal_text = font_small.render("H - Heal", True, (255, 255, 255))
+    screen.blit(heal_text, (230, 310))
+    
+    # Draw turn indicator
+    if battle.current_turn == "player":
+        turn_text = font_medium.render("YOUR TURN", True, (0, 255, 0))
+    else:
+        turn_text = font_medium.render("ENEMY TURN", True, (255, 0, 0))
+    screen.blit(turn_text, (SCREEN_WIDTH - 250, 10))
+
 def spawn_wave(wave_num):
+
     enemy_types = ["tiger", "wolf", "mammoth", "scorpion", "pterodactyl"]
     num_enemies = min(3 + wave_num, 8)
     
@@ -589,6 +847,18 @@ bronze_wave = 1
 bronze_level_width = 3000  # Total level width
 bronze_camera_x = 0  # Camera position for scrolling
 
+# Iron age variables
+iron_player = None
+iron_enemies = pygame.sprite.Group()
+iron_enemy_groups = []
+iron_map_width = 2000
+iron_map_height = 1500
+iron_camera_x = 0
+iron_camera_y = 0
+iron_wave = 1
+current_battle = None
+battle_active = False
+
 def draw_dev_menu():
     """Developer mode menu for testing phases"""
     screen.fill((30, 30, 40))
@@ -598,13 +868,15 @@ def draw_dev_menu():
     
     option1 = font_medium.render("1 - Stone Age (Waves 1-5)", True, (255, 255, 255))
     option2 = font_medium.render("2 - Bronze Age (Platformer)", True, (255, 255, 255))
-    option3 = font_small.render("0 - Back to Menu", True, (150, 150, 150))
+    option3 = font_medium.render("3 - Iron Age (2D RPG)", True, (255, 255, 255))
+    option4 = font_small.render("0 - Back to Menu", True, (150, 150, 150))
     
     screen.blit(title, (SCREEN_WIDTH // 2 - title.get_width() // 2, 80))
     screen.blit(subtitle, (SCREEN_WIDTH // 2 - subtitle.get_width() // 2, 180))
     screen.blit(option1, (SCREEN_WIDTH // 2 - option1.get_width() // 2, 280))
     screen.blit(option2, (SCREEN_WIDTH // 2 - option2.get_width() // 2, 350))
-    screen.blit(option3, (SCREEN_WIDTH // 2 - option3.get_width() // 2, 450))
+    screen.blit(option3, (SCREEN_WIDTH // 2 - option3.get_width() // 2, 420))
+    screen.blit(option4, (SCREEN_WIDTH // 2 - option4.get_width() // 2, 520))
 
 def create_bronze_platforms():
     """Create platforms for Bronze Age side-scrolling level"""
@@ -758,12 +1030,32 @@ while running:
                 bronze_warriors.empty()
                 bronze_wave = 1
                 spawn_bronze_warriors(bronze_wave)
+            elif event.key == pygame.K_3 and game_state == DEV_MENU:
+                # Iron Age testing
+                game_state = PLAYING
+                game_phase = PHASE_IRON_AGE
+                iron_player = IronPlayer()
+                iron_player.health = 5
+                iron_player.score = 0
+                iron_enemies.empty()
+                iron_enemy_groups.clear()
+                current_battle = None
+                battle_active = False
+                spawn_iron_enemies()
             elif event.key == pygame.K_0 and game_state == DEV_MENU:
                 # Back to menu
                 game_state = MENU
             elif event.key == pygame.K_s and game_state == PLAYING and game_phase == PHASE_BRONZE_AGE:
                 # Sword swing in bronze age
                 bronze_player.swing_sword()
+            elif event.key == pygame.K_SPACE and game_state == PLAYING and game_phase == PHASE_IRON_AGE and battle_active:
+                # Battle action: attack
+                if current_battle.current_turn == "player":
+                    current_battle.player_attack()
+            elif event.key == pygame.K_h and game_state == PLAYING and game_phase == PHASE_IRON_AGE and battle_active:
+                # Battle action: heal
+                if current_battle.current_turn == "player":
+                    current_battle.player_heal()
 
     if game_state == PLAYING:
         if game_phase == PHASE_STONE_AGE:
@@ -818,10 +1110,18 @@ while running:
             
             # Check if reached level end
             if bronze_player.rect.x >= bronze_level_width - 100:
-                # Level complete - move to next wave or end game
+                # Level complete - move to next wave or Iron Age
                 bronze_wave += 1
                 if bronze_wave > 3:  # 3 waves of Bronze Age
-                    game_state = GAME_OVER  # Victory state
+                    # Transition to Iron Age
+                    game_phase = PHASE_IRON_AGE
+                    iron_player = IronPlayer()
+                    iron_player.health = bronze_player.health  # Carry over health
+                    iron_player.score = bronze_player.score    # Carry over score
+                    iron_enemies.empty()
+                    iron_enemy_groups.clear()
+                    iron_wave = 1
+                    spawn_iron_enemies()
                 else:
                     # Reset for next wave
                     bronze_player.rect.x = 0
@@ -866,6 +1166,60 @@ while running:
                     game_state = GAME_OVER
             
             draw_bronze_game()
+        
+        elif game_phase == PHASE_IRON_AGE:
+            # IRON AGE PHASE (2D RPG with turn-based battles)
+            if not battle_active:
+                # Exploration mode
+                iron_player.update([])
+                
+                # Update camera to follow player
+                iron_camera_x = max(0, min(iron_player.rect.centerx - SCREEN_WIDTH // 2, iron_map_width - SCREEN_WIDTH))
+                iron_camera_y = max(0, min(iron_player.rect.centery - SCREEN_HEIGHT // 2, iron_map_height - SCREEN_HEIGHT))
+                
+                # Check for collisions with enemy groups (start battle)
+                for group in iron_enemy_groups:
+                    # Check if player is adjacent/close to enemy group
+                    for enemy in group:
+                        dx = iron_player.rect.centerx - enemy.rect.centerx
+                        dy = iron_player.rect.centery - enemy.rect.centery
+                        distance = math.sqrt(dx*dx + dy*dy)
+                        if distance < 80:  # Collision distance for battle start
+                            # Start a battle
+                            current_battle = BattleState(group)
+                            battle_active = True
+                            break
+                    if battle_active:
+                        break
+                
+                # Check if reached level end
+                if iron_player.rect.x > iron_map_width - 100:
+                    iron_wave += 1
+                    if iron_wave > 3:  # 3 waves of Iron Age
+                        game_state = GAME_OVER  # Victory state
+                    else:
+                        # Reset for next wave
+                        iron_player.rect.x = 0
+                        iron_player.rect.y = SCREEN_HEIGHT // 2
+                        iron_enemies.empty()
+                        iron_enemy_groups.clear()
+                        spawn_iron_enemies()
+                
+                draw_iron_game()
+            else:
+                # Battle mode
+                draw_battle_screen(current_battle)
+                
+                # Check if battle is over
+                if current_battle.battle_over:
+                    if current_battle.player_won:
+                        iron_player.score += sum(enemy.points for enemy in current_battle.enemies) * 2
+                        iron_player.health = min(iron_player.health + 1, iron_player.max_health)
+                    else:
+                        game_state = GAME_OVER
+                    
+                    battle_active = False
+                    current_battle = None
 
     elif game_state == MENU:
         draw_menu()
