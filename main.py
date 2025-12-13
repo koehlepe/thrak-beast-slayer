@@ -1004,6 +1004,10 @@ while running:
                     spears.empty()
                     wave_timer = pygame.time.get_ticks() - WAVE_DELAY
                     spawn_wave(wave_num)
+                elif game_state == PLAYING and game_phase == PHASE_IRON_AGE and battle_active:
+                    # Battle action: attack
+                    if current_battle.current_turn == "player":
+                        current_battle.player_attack()
                 elif game_state == GAME_OVER:
                     game_state = MENU
             elif event.key == pygame.K_1 and game_state == DEV_MENU:
@@ -1048,10 +1052,6 @@ while running:
             elif event.key == pygame.K_s and game_state == PLAYING and game_phase == PHASE_BRONZE_AGE:
                 # Sword swing in bronze age
                 bronze_player.swing_sword()
-            elif event.key == pygame.K_SPACE and game_state == PLAYING and game_phase == PHASE_IRON_AGE and battle_active:
-                # Battle action: attack
-                if current_battle.current_turn == "player":
-                    current_battle.player_attack()
             elif event.key == pygame.K_h and game_state == PLAYING and game_phase == PHASE_IRON_AGE and battle_active:
                 # Battle action: heal
                 if current_battle.current_turn == "player":
@@ -1215,6 +1215,14 @@ while running:
                     if current_battle.player_won:
                         iron_player.score += sum(enemy.points for enemy in current_battle.enemies) * 2
                         iron_player.health = min(iron_player.health + 1, iron_player.max_health)
+
+                        # Remove the defeated enemy group from the map
+                        for group in iron_enemy_groups:
+                            if all(enemy in current_battle.enemies or enemy.health <= 0 for enemy in group):
+                                iron_enemy_groups.remove(group)
+                                for enemy in group:
+                                    enemy.kill()
+                                break
                     else:
                         game_state = GAME_OVER
                     
