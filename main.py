@@ -1,28 +1,44 @@
+"""THRAK: Beast Slayer - A multi-phase arcade game.
+
+Features three distinct gameplay phases across historical eras:
+- Stone Age: Wave-based top-down shooting
+- Bronze Age: Side-scrolling platformer
+- Iron Age: 2D RPG with turn-based battles
+"""
+
 import pygame
 import random
 import math
+from typing import Optional, List, Tuple
+
+from config import (
+    SCREEN_WIDTH,
+    SCREEN_HEIGHT,
+    FPS,
+    WAVE_DELAY,
+    PHASE_STONE_AGE,
+    PHASE_BRONZE_AGE,
+    PHASE_IRON_AGE,
+    MENU,
+    PLAYING,
+    GAME_OVER,
+    DEV_MENU,
+)
 
 pygame.init()
 
-SCREEN_WIDTH = 800
-SCREEN_HEIGHT = 600
-FPS = 60
-WAVE_DELAY = 3000
-
-screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
+screen: pygame.Surface = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
 pygame.display.set_caption("THRAK: Beast Slayer")
-clock = pygame.time.Clock()
-font_large = pygame.font.Font(None, 72)
-font_medium = pygame.font.Font(None, 36)
-font_small = pygame.font.Font(None, 24)
+clock: pygame.time.Clock = pygame.time.Clock()
+font_large: pygame.font.Font = pygame.font.Font(None, 72)
+font_medium: pygame.font.Font = pygame.font.Font(None, 36)
+font_small: pygame.font.Font = pygame.font.Font(None, 24)
 
-# Game phases
-PHASE_STONE_AGE = 0
-PHASE_BRONZE_AGE = 1
-PHASE_IRON_AGE = 2
 
 class Player(pygame.sprite.Sprite):
-    def __init__(self):
+    """Stone Age player character - top-down warrior."""
+
+    def __init__(self) -> None:
         super().__init__()
         self.image = pygame.Surface((50, 60), pygame.SRCALPHA)
         # Head
@@ -44,20 +60,25 @@ class Player(pygame.sprite.Sprite):
         self.health = 3
         self.score = 0
 
-    def update(self):
+    def update(self) -> None:
+        """Update player position based on keyboard input."""
         keys = pygame.key.get_pressed()
         if keys[pygame.K_LEFT] and self.rect.x > 0:
             self.rect.x -= self.speed
         if keys[pygame.K_RIGHT] and self.rect.x < SCREEN_WIDTH - self.rect.width:
             self.rect.x += self.speed
 
-    def shoot(self):
+    def shoot(self) -> None:
+        """Fire a spear projectile from player position."""
         spear = Spear(self.rect.centerx, self.rect.top)
         all_sprites.add(spear)
         spears.add(spear)
 
+
 class Spear(pygame.sprite.Sprite):
-    def __init__(self, x, y):
+    """Projectile weapon fired by Stone Age player."""
+
+    def __init__(self, x: float, y: float) -> None:
         super().__init__()
         self.image = pygame.Surface((12, 30), pygame.SRCALPHA)
         # Spear shaft
@@ -69,13 +90,17 @@ class Spear(pygame.sprite.Sprite):
         self.rect = self.image.get_rect(centerx=x, bottom=y)
         self.speed = 7
 
-    def update(self):
+    def update(self) -> None:
+        """Move spear upward and remove if off-screen."""
         self.rect.y -= self.speed
         if self.rect.bottom < 0:
             self.kill()
 
+
 class Enemy(pygame.sprite.Sprite):
-    def __init__(self, x, y, enemy_type):
+    """Stone Age enemy - prehistoric beasts."""
+
+    def __init__(self, x: float, y: float, enemy_type: str) -> None:
         super().__init__()
         self.enemy_type = enemy_type
         self.health = 1
@@ -160,7 +185,9 @@ class Enemy(pygame.sprite.Sprite):
             # Body
             pygame.draw.circle(self.image, (110, 110, 130), (28, 22), 8)
             # Head
-            pygame.draw.polygon(self.image, (130, 130, 150), [(35, 18), (60, 12), (62, 18), (55, 22)])
+            pygame.draw.polygon(
+                self.image, (130, 130, 150), [(35, 18), (60, 12), (62, 18), (55, 22)]
+            )
             # Long beak
             pygame.draw.line(self.image, (150, 150, 170), (62, 15), (65, 15), 3)
             # Eye
@@ -174,44 +201,48 @@ class Enemy(pygame.sprite.Sprite):
         self.rect = self.image.get_rect(topleft=(x, y))
         self.direction = random.choice([-1, 1])
 
-    def update(self):
+    def update(self) -> None:
+        """Update enemy position - move toward player and descend."""
         # Move toward player horizontally
         player_x = player.rect.centerx
         enemy_center = self.rect.centerx
-        
+
         if enemy_center < player_x - 10:
             self.rect.x += self.speed
         elif enemy_center > player_x + 10:
             self.rect.x -= self.speed
-        
+
         # Keep within bounds
         if self.rect.left < 0:
             self.rect.left = 0
         if self.rect.right > SCREEN_WIDTH:
             self.rect.right = SCREEN_WIDTH
-        
+
         # Move down faster - attack pattern
         self.rect.y += 2.5
 
         if self.rect.top > SCREEN_HEIGHT:
             self.kill()
 
-    def take_damage(self):
+    def take_damage(self) -> bool:
+        """Reduce health by 1 and return True if enemy defeated."""
         self.health -= 1
         if self.health <= 0:
             self.kill()
             return True
         return False
 
+
 class BronzeWarrior(pygame.sprite.Sprite):
     """Bronze Age Warrior - enemy in platformer phase"""
+
     def __init__(self, x, y, warrior_type="standard", move_direction=-1):
         super().__init__()
         self.warrior_type = warrior_type
         self.health = 2 if warrior_type == "heavy" else 1
         self.speed = 1.5 if warrior_type == "heavy" else 2.5
         self.direction = move_direction  # Direction to move (-1 for left, 1 for right)
-        
+
         if warrior_type == "heavy":
             self.image = pygame.Surface((50, 60), pygame.SRCALPHA)
             # Helmet with plume
@@ -243,7 +274,7 @@ class BronzeWarrior(pygame.sprite.Sprite):
             pygame.draw.line(self.image, (80, 50, 25), (16, 41), (13, 55), 3)
             pygame.draw.line(self.image, (80, 50, 25), (29, 41), (32, 55), 3)
             self.points = 150
-        
+
         self.rect = self.image.get_rect(topleft=(x, y))
         self.velocity_y = 0
         self.gravity = 0.5
@@ -254,16 +285,16 @@ class BronzeWarrior(pygame.sprite.Sprite):
     def update(self, platforms):
         # Horizontal movement (constant direction, no bouncing)
         self.rect.x += self.direction * self.speed
-        
+
         # Remove if off left side of level
         if self.rect.right < 0:
             self.kill()
             return
-        
+
         # Gravity and jumping
         self.velocity_y += self.gravity
         self.rect.y += self.velocity_y
-        
+
         # Platform collision
         self.on_ground = False
         for platform in platforms:
@@ -272,13 +303,13 @@ class BronzeWarrior(pygame.sprite.Sprite):
                     self.rect.bottom = platform.rect.top
                     self.velocity_y = 0
                     self.on_ground = True
-        
+
         # Random jumping
         self.jump_timer -= 1
         if self.jump_timer <= 0 and self.on_ground and random.random() < 0.02:
             self.velocity_y = -10
             self.jump_timer = 30
-        
+
         # Fall off screen
         if self.rect.top > SCREEN_HEIGHT:
             self.kill()
@@ -290,8 +321,10 @@ class BronzeWarrior(pygame.sprite.Sprite):
             return True
         return False
 
+
 class Platform(pygame.sprite.Sprite):
     """Platforms for Bronze Age platformer phase"""
+
     def __init__(self, x, y, width, height):
         super().__init__()
         self.image = pygame.Surface((width, height))
@@ -301,8 +334,10 @@ class Platform(pygame.sprite.Sprite):
         pygame.draw.line(self.image, (200, 140, 80), (0, height - 2), (width, height - 2), 2)
         self.rect = self.image.get_rect(topleft=(x, y))
 
+
 class BronzePlayer(pygame.sprite.Sprite):
     """Bronze Age Warrior Player - platformer version"""
+
     def __init__(self):
         super().__init__()
         self.image = pygame.Surface((45, 55), pygame.SRCALPHA)
@@ -319,7 +354,7 @@ class BronzePlayer(pygame.sprite.Sprite):
         # Legs
         pygame.draw.line(self.image, (100, 70, 35), (16, 43), (14, 55), 3)
         pygame.draw.line(self.image, (100, 70, 35), (29, 43), (31, 55), 3)
-        
+
         self.rect = self.image.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT - 100))
         self.velocity_y = 0
         self.velocity_x = 0
@@ -346,16 +381,18 @@ class BronzePlayer(pygame.sprite.Sprite):
         pygame.draw.rect(self.image, (180, 110, 40), (8, 23, 29, 5))
         # Bronze sword - position based on facing direction
         if self.facing == 1:  # Facing right
-            pygame.draw.polygon(self.image, (210, 160, 100), [(40, 30), (43, 10), (45, 12), (42, 32)])
+            pygame.draw.polygon(
+                self.image, (210, 160, 100), [(40, 30), (43, 10), (45, 12), (42, 32)]
+            )
         else:  # Facing left
             pygame.draw.polygon(self.image, (210, 160, 100), [(5, 30), (2, 10), (0, 12), (3, 32)])
         # Legs
         pygame.draw.line(self.image, (100, 70, 35), (16, 43), (14, 55), 3)
         pygame.draw.line(self.image, (100, 70, 35), (29, 43), (31, 55), 3)
-    
+
     def update(self, platforms):
         keys = pygame.key.get_pressed()
-        
+
         # Horizontal movement
         old_facing = self.facing
         self.velocity_x = 0
@@ -365,17 +402,17 @@ class BronzePlayer(pygame.sprite.Sprite):
         if keys[pygame.K_RIGHT]:
             self.velocity_x = self.speed
             self.facing = 1
-        
+
         # Redraw sprite if facing direction changed
         if self.facing != old_facing:
             self.redraw_sprite()
-        
+
         self.rect.x += self.velocity_x
-        
+
         # Gravity
         self.velocity_y += self.gravity
         self.rect.y += self.velocity_y
-        
+
         # Platform collision
         self.on_ground = False
         for platform in platforms:
@@ -384,28 +421,28 @@ class BronzePlayer(pygame.sprite.Sprite):
                     self.rect.bottom = platform.rect.top
                     self.velocity_y = 0
                     self.on_ground = True
-        
+
         # Jump
         if keys[pygame.K_SPACE] and self.on_ground:
             self.velocity_y = -12
             self.on_ground = False
-        
+
         # Level bounds - allow player to move across entire level
         if self.rect.left < 0:
             self.rect.left = 0
         if self.rect.right > bronze_level_width:
             self.rect.right = bronze_level_width
-        
+
         # Fall off screen
         if self.rect.top > SCREEN_HEIGHT:
             return False  # Player died
         return True
-    
+
     def swing_sword(self):
         """Start sword swing animation"""
         self.sword_swing = True
         self.swing_timer = self.swing_duration
-    
+
     def get_sword_rect(self):
         """Get the hitbox of the swinging sword"""
         if self.sword_swing and self.swing_timer > 0:
@@ -415,12 +452,12 @@ class BronzePlayer(pygame.sprite.Sprite):
             else:  # Facing left
                 return pygame.Rect(self.rect.left - 25, self.rect.centery - 15, 30, 30)
         return pygame.Rect(0, 0, 0, 0)  # No collision when not swinging
-    
+
     def get_feet_rect(self):
         """Get the hitbox for the player's feet (for stomp damage)"""
         # Bottom portion of the player for detecting stomps on enemies
         return pygame.Rect(self.rect.left, self.rect.bottom - 10, self.rect.width, 10)
-    
+
     def draw_sword_swing(self, surface, camera_offset=0):
         """Draw the sword swing effect"""
         if self.sword_swing and self.swing_timer > 0:
@@ -439,8 +476,10 @@ class BronzePlayer(pygame.sprite.Sprite):
                 end_y = int(center[1] - radius * math.cos(angle))
             pygame.draw.line(surface, (210, 160, 100), center, (end_x, end_y), 5)
 
+
 class IronPlayer(pygame.sprite.Sprite):
     """Iron Age Player - 2D top-down movement"""
+
     def __init__(self):
         super().__init__()
         self.image = pygame.Surface((40, 40), pygame.SRCALPHA)
@@ -451,7 +490,7 @@ class IronPlayer(pygame.sprite.Sprite):
         self.max_health = 5
         self.score = 0
         self.facing = (1, 0)  # (x, y) direction
-        
+
     def draw_sprite(self):
         """Draw the Iron Age player sprite"""
         self.image = pygame.Surface((40, 40), pygame.SRCALPHA)
@@ -465,12 +504,12 @@ class IronPlayer(pygame.sprite.Sprite):
         # Legs
         pygame.draw.line(self.image, (80, 80, 80), (15, 36), (12, 38), 2)
         pygame.draw.line(self.image, (80, 80, 80), (25, 36), (28, 38), 2)
-        
+
     def update(self, obstacles):
         keys = pygame.key.get_pressed()
         dx = 0
         dy = 0
-        
+
         if keys[pygame.K_UP] or keys[pygame.K_w]:
             dy = -self.speed
             self.facing = (0, -1)
@@ -483,29 +522,35 @@ class IronPlayer(pygame.sprite.Sprite):
         if keys[pygame.K_RIGHT] or keys[pygame.K_d]:
             dx = self.speed
             self.facing = (1, 0)
-        
+
         # Diagonal movement
         if (keys[pygame.K_UP] or keys[pygame.K_w]) and (keys[pygame.K_LEFT] or keys[pygame.K_a]):
             self.facing = (-1, -1)
         elif (keys[pygame.K_UP] or keys[pygame.K_w]) and (keys[pygame.K_RIGHT] or keys[pygame.K_d]):
             self.facing = (1, -1)
-        elif (keys[pygame.K_DOWN] or keys[pygame.K_s]) and (keys[pygame.K_LEFT] or keys[pygame.K_a]):
+        elif (keys[pygame.K_DOWN] or keys[pygame.K_s]) and (
+            keys[pygame.K_LEFT] or keys[pygame.K_a]
+        ):
             self.facing = (-1, 1)
-        elif (keys[pygame.K_DOWN] or keys[pygame.K_s]) and (keys[pygame.K_RIGHT] or keys[pygame.K_d]):
+        elif (keys[pygame.K_DOWN] or keys[pygame.K_s]) and (
+            keys[pygame.K_RIGHT] or keys[pygame.K_d]
+        ):
             self.facing = (1, 1)
-        
+
         # Move with collision detection
         new_x = self.rect.x + dx
         new_y = self.rect.y + dy
-        
+
         # Boundary checking
         if 0 <= new_x <= iron_map_width - self.rect.width:
             self.rect.x = new_x
         if 0 <= new_y <= iron_map_height - self.rect.height:
             self.rect.y = new_y
 
+
 class IronEnemy(pygame.sprite.Sprite):
     """Iron Age Enemy - involved in turn-based battles"""
+
     def __init__(self, x, y, enemy_type="warrior"):
         super().__init__()
         self.enemy_type = enemy_type
@@ -514,11 +559,11 @@ class IronEnemy(pygame.sprite.Sprite):
         self.attack_power = {"warrior": 2, "knight": 3, "warlord": 4}.get(enemy_type, 2)
         self.defense = {"warrior": 1, "knight": 2, "warlord": 3}.get(enemy_type, 1)
         self.points = {"warrior": 50, "knight": 100, "warlord": 200}.get(enemy_type, 50)
-        
+
         self.image = pygame.Surface((40, 40), pygame.SRCALPHA)
         self.draw_sprite()
         self.rect = self.image.get_rect(topleft=(x, y))
-        
+
     def draw_sprite(self):
         """Draw the enemy sprite based on type"""
         self.image = pygame.Surface((40, 40), pygame.SRCALPHA)
@@ -541,8 +586,10 @@ class IronEnemy(pygame.sprite.Sprite):
             pygame.draw.rect(self.image, (130, 130, 130), (8, 17, 24, 20))
             pygame.draw.line(self.image, (100, 100, 100), (8, 25), (32, 25), 2)
 
+
 class BattleState:
     """Manages a turn-based battle between player and enemy group"""
+
     def __init__(self, enemies_list):
         self.player_health = iron_player.health
         self.player_max_health = iron_player.max_health
@@ -553,7 +600,7 @@ class BattleState:
         self.player_won = False
         self.selected_action = None  # "attack", "defend", "heal"
         self.defend_mode = False
-        
+
     def player_attack(self):
         """Player attacks a random enemy"""
         if not self.enemies:
@@ -566,20 +613,20 @@ class BattleState:
             self.battle_log.append(f"Enemy {target.enemy_type} defeated!")
             self.enemies.remove(target)
         self.end_player_turn()
-        
+
     def player_defend(self):
         """Player defends (reduces damage next turn)"""
         self.battle_log.append("You take a defensive stance!")
         self.defend_mode = True
         self.end_player_turn()
-        
+
     def player_heal(self):
         """Player heals some health"""
         heal_amount = random.randint(2, 4)
         self.player_health = min(self.player_health + heal_amount, self.player_max_health)
         self.battle_log.append(f"You heal for {heal_amount} health!")
         self.end_player_turn()
-        
+
     def end_player_turn(self):
         """End player turn and start enemy turn"""
         if not self.enemies:
@@ -589,14 +636,14 @@ class BattleState:
             return
         self.current_turn = "enemy"
         self.enemy_attack()
-        
+
     def enemy_attack(self):
         """All remaining enemies attack"""
         for enemy in self.enemies:
             damage = random.randint(1, enemy.attack_power + 2) - 1  # Min 1 damage
             self.player_health -= max(1, damage)
             self.battle_log.append(f"Enemy {enemy.enemy_type} attacks for {damage} damage!")
-        
+
         if self.player_health <= 0:
             self.battle_over = True
             self.player_won = False
@@ -605,12 +652,13 @@ class BattleState:
             self.current_turn = "player"
             self.battle_log.append("Your turn!")
 
+
 def spawn_iron_enemies():
     """Spawn enemy groups throughout the Iron Age map"""
     for i in range(5):
         x = random.randint(100, iron_map_width - 150)
         y = random.randint(100, iron_map_height - 150)
-        
+
         group_size = random.randint(1, 3)
         enemy_group = []
         for j in range(group_size):
@@ -618,76 +666,88 @@ def spawn_iron_enemies():
             enemy = IronEnemy(x + j * 50, y, enemy_type)
             enemy_group.append(enemy)
             iron_enemies.add(enemy)
-        
+
         iron_enemy_groups.append(enemy_group)
+
 
 def draw_iron_game():
     """Draw the Iron Age game screen"""
     # Draw grass background
     screen.fill((60, 120, 60))
-    
+
     # Draw simple grid pattern for terrain
     for x in range(0, iron_map_width, 50):
-        pygame.draw.line(screen, (40, 100, 40), (x - iron_camera_x, 0), (x - iron_camera_x, SCREEN_HEIGHT), 1)
+        pygame.draw.line(
+            screen, (40, 100, 40), (x - iron_camera_x, 0), (x - iron_camera_x, SCREEN_HEIGHT), 1
+        )
     for y in range(0, iron_map_height, 50):
-        pygame.draw.line(screen, (40, 100, 40), (0, y - iron_camera_y), (SCREEN_WIDTH, y - iron_camera_y), 1)
-    
+        pygame.draw.line(
+            screen, (40, 100, 40), (0, y - iron_camera_y), (SCREEN_WIDTH, y - iron_camera_y), 1
+        )
+
     # Draw enemies
     for enemy in iron_enemies:
         enemy_screen_x = enemy.rect.x - iron_camera_x
         enemy_screen_y = enemy.rect.y - iron_camera_y
         if -50 < enemy_screen_x < SCREEN_WIDTH and -50 < enemy_screen_y < SCREEN_HEIGHT:
             screen.blit(enemy.image, (enemy_screen_x, enemy_screen_y))
-    
+
     # Draw player at center
     player_screen_x = iron_player.rect.x - iron_camera_x
     player_screen_y = iron_player.rect.y - iron_camera_y
     screen.blit(iron_player.image, (player_screen_x, player_screen_y))
-    
+
     # Draw UI
-    health_text = font_small.render(f"Health: {iron_player.health}/{iron_player.max_health}", True, (255, 255, 255))
+    health_text = font_small.render(
+        f"Health: {iron_player.health}/{iron_player.max_health}", True, (255, 255, 255)
+    )
     score_text = font_small.render(f"Score: {iron_player.score}", True, (255, 255, 255))
     screen.blit(health_text, (10, 10))
     screen.blit(score_text, (10, 40))
 
+
 def draw_battle_screen(battle):
     """Draw the turn-based battle screen"""
     screen.fill((40, 40, 60))
-    
+
     # Draw player info
     pygame.draw.rect(screen, (100, 150, 100), (10, 10, 300, 100))
     player_text = font_medium.render("Your Status", True, (255, 255, 255))
-    health_text = font_small.render(f"Health: {battle.player_health}/{battle.player_max_health}", True, (255, 255, 255))
+    health_text = font_small.render(
+        f"Health: {battle.player_health}/{battle.player_max_health}", True, (255, 255, 255)
+    )
     screen.blit(player_text, (20, 20))
     screen.blit(health_text, (20, 50))
-    
+
     # Draw enemies info
     pygame.draw.rect(screen, (150, 100, 100), (10, 130, 300, 150))
     enemies_title = font_medium.render("Enemies", True, (255, 255, 255))
     screen.blit(enemies_title, (20, 140))
     for i, enemy in enumerate(battle.enemies):
-        enemy_text = font_small.render(f"{enemy.enemy_type}: {enemy.health}/{enemy.max_health} HP", True, (255, 255, 255))
+        enemy_text = font_small.render(
+            f"{enemy.enemy_type}: {enemy.health}/{enemy.max_health} HP", True, (255, 255, 255)
+        )
         screen.blit(enemy_text, (20, 170 + i * 25))
-    
+
     # Draw battle log
     pygame.draw.rect(screen, (80, 80, 80), (330, 10, 460, 270))
     log_title = font_medium.render("Battle Log", True, (255, 255, 255))
     screen.blit(log_title, (340, 20))
-    
+
     # Show last few log messages
     for i, message in enumerate(battle.battle_log[-6:]):
         msg_text = font_small.render(message, True, (200, 200, 200))
         screen.blit(msg_text, (340, 50 + i * 30))
-    
+
     # Draw action buttons
     pygame.draw.rect(screen, (100, 100, 150), (10, 300, 200, 50))
     attack_text = font_small.render("SPACE - Attack", True, (255, 255, 255))
     screen.blit(attack_text, (20, 310))
-    
+
     pygame.draw.rect(screen, (100, 150, 100), (220, 300, 200, 50))
     heal_text = font_small.render("H - Heal", True, (255, 255, 255))
     screen.blit(heal_text, (230, 310))
-    
+
     # Draw turn indicator
     if battle.current_turn == "player":
         turn_text = font_medium.render("YOUR TURN", True, (0, 255, 0))
@@ -695,11 +755,12 @@ def draw_battle_screen(battle):
         turn_text = font_medium.render("ENEMY TURN", True, (255, 0, 0))
     screen.blit(turn_text, (SCREEN_WIDTH - 250, 10))
 
+
 def spawn_wave(wave_num):
 
     enemy_types = ["tiger", "wolf", "mammoth", "scorpion", "pterodactyl"]
     num_enemies = min(3 + wave_num, 8)
-    
+
     for i in range(num_enemies):
         enemy_type = random.choice(enemy_types)
         x = random.randint(50, SCREEN_WIDTH - 100)
@@ -708,25 +769,37 @@ def spawn_wave(wave_num):
         all_sprites.add(enemy)
         enemies.add(enemy)
 
+
 def draw_game():
     # Draw cave background with gradient
     for y in range(SCREEN_HEIGHT):
         color_val = int(70 + (y / SCREEN_HEIGHT) * 40)
         pygame.draw.line(screen, (color_val, color_val // 2, 0), (0, y), (SCREEN_WIDTH, y))
-    
+
     # Draw distant cave walls (perspective effect)
-    pygame.draw.polygon(screen, (50, 35, 15), [(0, 0), (SCREEN_WIDTH, 0), (SCREEN_WIDTH - 150, 150), (150, 150)])
-    
+    pygame.draw.polygon(
+        screen, (50, 35, 15), [(0, 0), (SCREEN_WIDTH, 0), (SCREEN_WIDTH - 150, 150), (150, 150)]
+    )
+
     # Draw scattered rocks and boulders across the cave floor
     rock_positions = [
-        (80, 120, 15), (200, 100, 20), (350, 140, 18), (500, 95, 22), (650, 130, 16),
-        (120, 200, 12), (300, 220, 25), (550, 210, 14), (700, 240, 19),
-        (180, 300, 18), (420, 320, 16), (600, 310, 21),
+        (80, 120, 15),
+        (200, 100, 20),
+        (350, 140, 18),
+        (500, 95, 22),
+        (650, 130, 16),
+        (120, 200, 12),
+        (300, 220, 25),
+        (550, 210, 14),
+        (700, 240, 19),
+        (180, 300, 18),
+        (420, 320, 16),
+        (600, 310, 21),
     ]
     for rock_x, rock_y, rock_size in rock_positions:
         pygame.draw.circle(screen, (50, 30, 15), (rock_x, rock_y), rock_size)
         pygame.draw.circle(screen, (60, 38, 18), (rock_x - 5, rock_y - 5), rock_size - 2)
-    
+
     # Draw bushes/vegetation
     bush_positions = [(150, 180), (400, 200), (700, 160), (250, 320), (550, 280)]
     for bush_x, bush_y in bush_positions:
@@ -736,23 +809,38 @@ def draw_game():
         pygame.draw.circle(screen, (50, 120, 30), (bush_x - 10, bush_y - 10), 12)
         pygame.draw.circle(screen, (50, 120, 30), (bush_x + 10, bush_y - 8), 11)
         pygame.draw.circle(screen, (45, 110, 25), (bush_x, bush_y + 5), 10)
-    
+
     # Draw cave cracks/crevices on ground
     pygame.draw.line(screen, (30, 15, 5), (100, 350), (180, 500), 2)
     pygame.draw.line(screen, (30, 15, 5), (400, 320), (420, 550), 2)
     pygame.draw.line(screen, (30, 15, 5), (700, 380), (650, 550), 2)
-    
+
     # Draw ground/terrain at bottom (darker)
-    pygame.draw.polygon(screen, (40, 25, 10), [(0, SCREEN_HEIGHT - 80), (SCREEN_WIDTH, SCREEN_HEIGHT - 80), (SCREEN_WIDTH, SCREEN_HEIGHT), (0, SCREEN_HEIGHT)])
-    
+    pygame.draw.polygon(
+        screen,
+        (40, 25, 10),
+        [
+            (0, SCREEN_HEIGHT - 80),
+            (SCREEN_WIDTH, SCREEN_HEIGHT - 80),
+            (SCREEN_WIDTH, SCREEN_HEIGHT),
+            (0, SCREEN_HEIGHT),
+        ],
+    )
+
     # Draw rocky terrain features at bottom
-    rock_positions_bottom = [(100, SCREEN_HEIGHT - 60), (250, SCREEN_HEIGHT - 50), (400, SCREEN_HEIGHT - 70), (550, SCREEN_HEIGHT - 55), (700, SCREEN_HEIGHT - 65)]
+    rock_positions_bottom = [
+        (100, SCREEN_HEIGHT - 60),
+        (250, SCREEN_HEIGHT - 50),
+        (400, SCREEN_HEIGHT - 70),
+        (550, SCREEN_HEIGHT - 55),
+        (700, SCREEN_HEIGHT - 65),
+    ]
     for rock_x, rock_y in rock_positions_bottom:
         pygame.draw.circle(screen, (35, 20, 8), (rock_x, rock_y), 28)
         pygame.draw.circle(screen, (45, 28, 12), (rock_x, rock_y), 23)
-    
+
     all_sprites.draw(screen)
-    
+
     # Draw HUD with top-down view indicator
     health_text = font_small.render(f"Health: {player.health}", True, (255, 255, 255))
     score_text = font_small.render(f"Score: {player.score}", True, (255, 255, 255))
@@ -763,35 +851,61 @@ def draw_game():
     screen.blit(wave_text, (SCREEN_WIDTH - 150, 10))
     screen.blit(view_text, (SCREEN_WIDTH // 2 - 70, 10))
 
+
 def draw_menu():
     # Draw night sky background with stars
     screen.fill((20, 15, 40))
-    
+
     # Draw stars
     for i in range(0, SCREEN_WIDTH, 60):
         for j in range(0, 150, 60):
-            pygame.draw.circle(screen, (255, 255, 200), (i + random.randint(-20, 20), j + random.randint(-20, 20)), 2)
-    
+            pygame.draw.circle(
+                screen,
+                (255, 255, 200),
+                (i + random.randint(-20, 20), j + random.randint(-20, 20)),
+                2,
+            )
+
     # Draw moon
     pygame.draw.circle(screen, (240, 240, 180), (SCREEN_WIDTH - 80, 80), 60)
     pygame.draw.circle(screen, (20, 15, 40), (SCREEN_WIDTH - 70, 60), 50)
-    
+
     # Draw mountains/cave entrance silhouette
-    pygame.draw.polygon(screen, (30, 20, 10), [(0, SCREEN_HEIGHT), (150, 250), (SCREEN_WIDTH // 2, 200), (SCREEN_WIDTH - 150, 250), (SCREEN_WIDTH, SCREEN_HEIGHT)])
-    pygame.draw.polygon(screen, (40, 30, 15), [(150, 250), (SCREEN_WIDTH // 2, 200), (SCREEN_WIDTH - 150, 250)])
-    
+    pygame.draw.polygon(
+        screen,
+        (30, 20, 10),
+        [
+            (0, SCREEN_HEIGHT),
+            (150, 250),
+            (SCREEN_WIDTH // 2, 200),
+            (SCREEN_WIDTH - 150, 250),
+            (SCREEN_WIDTH, SCREEN_HEIGHT),
+        ],
+    )
+    pygame.draw.polygon(
+        screen, (40, 30, 15), [(150, 250), (SCREEN_WIDTH // 2, 200), (SCREEN_WIDTH - 150, 250)]
+    )
+
     title = font_large.render("THRAK", True, (255, 100, 0))
     subtitle = font_medium.render("BEAST SLAYER OF THE STONE AGE", True, (255, 200, 0))
-    
+
     # Backstory text
     backstory_font = pygame.font.Font(None, 18)
-    story_line1 = backstory_font.render("The ancient beasts have awakened. Darkness spreads across the land.", True, (200, 200, 200))
-    story_line2 = backstory_font.render("Your tribe looks to you, THRAK, their greatest warrior.", True, (200, 200, 200))
-    story_line3 = backstory_font.render("With spear in hand and fire in your heart, defend them or perish.", True, (200, 200, 200))
-    
-    instructions = font_small.render("Press SPACE to Hunt | Arrow Keys to Move | SPACE to Throw Spear", True, (200, 200, 200))
+    story_line1 = backstory_font.render(
+        "The ancient beasts have awakened. Darkness spreads across the land.", True, (200, 200, 200)
+    )
+    story_line2 = backstory_font.render(
+        "Your tribe looks to you, THRAK, their greatest warrior.", True, (200, 200, 200)
+    )
+    story_line3 = backstory_font.render(
+        "With spear in hand and fire in your heart, defend them or perish.", True, (200, 200, 200)
+    )
+
+    instructions = font_small.render(
+        "Press SPACE to Hunt | Arrow Keys to Move | SPACE to Throw Spear", True, (200, 200, 200)
+    )
     dev_text = font_small.render("Press D for Developer Mode", True, (100, 255, 100))
-    
+
     screen.blit(title, (SCREEN_WIDTH // 2 - title.get_width() // 2, 80))
     screen.blit(subtitle, (SCREEN_WIDTH // 2 - subtitle.get_width() // 2, 160))
     screen.blit(story_line1, (SCREEN_WIDTH // 2 - story_line1.get_width() // 2, 240))
@@ -800,15 +914,25 @@ def draw_menu():
     screen.blit(instructions, (SCREEN_WIDTH // 2 - instructions.get_width() // 2, 400))
     screen.blit(dev_text, (SCREEN_WIDTH // 2 - dev_text.get_width() // 2, 550))
 
+
 def draw_game_over():
     # Draw cave background with gradient
     for y in range(SCREEN_HEIGHT):
         color_val = int(70 + (y / SCREEN_HEIGHT) * 40)
         pygame.draw.line(screen, (color_val, color_val // 2, 0), (0, y), (SCREEN_WIDTH, y))
-    
+
     # Draw rocky terrain
-    pygame.draw.polygon(screen, (60, 40, 20), [(0, SCREEN_HEIGHT), (SCREEN_WIDTH, SCREEN_HEIGHT), (SCREEN_WIDTH, SCREEN_HEIGHT - 80), (0, SCREEN_HEIGHT - 80)])
-    
+    pygame.draw.polygon(
+        screen,
+        (60, 40, 20),
+        [
+            (0, SCREEN_HEIGHT),
+            (SCREEN_WIDTH, SCREEN_HEIGHT),
+            (SCREEN_WIDTH, SCREEN_HEIGHT - 80),
+            (0, SCREEN_HEIGHT - 80),
+        ],
+    )
+
     game_over = font_large.render("GAME OVER", True, (255, 0, 0))
     score_text = font_medium.render(f"Final Score: {player.score}", True, (255, 255, 255))
     wave_text = font_medium.render(f"Wave Reached: {wave_num}", True, (255, 255, 255))
@@ -817,6 +941,7 @@ def draw_game_over():
     screen.blit(score_text, (SCREEN_WIDTH // 2 - score_text.get_width() // 2, 250))
     screen.blit(wave_text, (SCREEN_WIDTH // 2 - wave_text.get_width() // 2, 320))
     screen.blit(restart, (SCREEN_WIDTH // 2 - restart.get_width() // 2, 450))
+
 
 # Sprite groups
 all_sprites = pygame.sprite.Group()
@@ -859,24 +984,26 @@ iron_wave = 1
 current_battle = None
 battle_active = False
 
+
 def draw_dev_menu():
     """Developer mode menu for testing phases"""
     screen.fill((30, 30, 40))
-    
+
     title = font_large.render("DEVELOPER MODE", True, (0, 255, 0))
     subtitle = font_medium.render("Select Phase to Test", True, (100, 255, 100))
-    
+
     option1 = font_medium.render("1 - Stone Age (Waves 1-5)", True, (255, 255, 255))
     option2 = font_medium.render("2 - Bronze Age (Platformer)", True, (255, 255, 255))
     option3 = font_medium.render("3 - Iron Age (2D RPG)", True, (255, 255, 255))
     option4 = font_small.render("0 - Back to Menu", True, (150, 150, 150))
-    
+
     screen.blit(title, (SCREEN_WIDTH // 2 - title.get_width() // 2, 80))
     screen.blit(subtitle, (SCREEN_WIDTH // 2 - subtitle.get_width() // 2, 180))
     screen.blit(option1, (SCREEN_WIDTH // 2 - option1.get_width() // 2, 280))
     screen.blit(option2, (SCREEN_WIDTH // 2 - option2.get_width() // 2, 350))
     screen.blit(option3, (SCREEN_WIDTH // 2 - option3.get_width() // 2, 420))
     screen.blit(option4, (SCREEN_WIDTH // 2 - option4.get_width() // 2, 520))
+
 
 def create_bronze_platforms():
     """Create platforms for Bronze Age side-scrolling level"""
@@ -893,15 +1020,15 @@ def create_bronze_platforms():
         (1850, SCREEN_HEIGHT - 50, 500, 50),  # Solid ground
         (2450, SCREEN_HEIGHT - 50, 300, 50),  # Gap here, must jump (2350-2450)
         (2800, SCREEN_HEIGHT - 50, 200, 50),  # Final platform
-        
         # Some elevated platforms for variety and challenge
-        (600, SCREEN_HEIGHT - 150, 150, 20),   # Elevated platform
+        (600, SCREEN_HEIGHT - 150, 150, 20),  # Elevated platform
         (1200, SCREEN_HEIGHT - 120, 100, 20),  # Elevated platform
         (2200, SCREEN_HEIGHT - 140, 120, 20),  # Elevated platform
     ]
     for x, y, width, height in platform_data:
         platforms.add(Platform(x, y, width, height))
     return platforms
+
 
 def spawn_bronze_warriors(wave):
     """Spawn Bronze Age warriors from the right side"""
@@ -914,75 +1041,97 @@ def spawn_bronze_warriors(wave):
         warrior = BronzeWarrior(x, y, warrior_type, move_direction=-1)  # Moving left
         bronze_warriors.add(warrior)
 
+
 def draw_bronze_game():
     """Draw Bronze Age side-scrolling platformer phase"""
     global bronze_camera_x
-    
+
     # Sky background - gradient
     for y in range(SCREEN_HEIGHT):
         color_val = int(120 + (y / SCREEN_HEIGHT) * 40)
-        pygame.draw.line(screen, (color_val, color_val - 40, color_val - 80), (0, y), (SCREEN_WIDTH, y))
-    
+        pygame.draw.line(
+            screen, (color_val, color_val - 40, color_val - 80), (0, y), (SCREEN_WIDTH, y)
+        )
+
     # Draw sun
     sun_x = 600 - int(bronze_camera_x * 0.3)
     pygame.draw.circle(screen, (255, 220, 0), (sun_x, 80), 50)
-    
+
     # Draw clouds parallax
     for i in range(5):
         cloud_x = (i * 300 - int(bronze_camera_x * 0.2)) % (SCREEN_WIDTH + 200) - 100
         pygame.draw.ellipse(screen, (200, 200, 200), (cloud_x, 60 + (i % 3) * 40, 100, 30))
         pygame.draw.ellipse(screen, (210, 210, 210), (cloud_x + 30, 50 + (i % 3) * 40, 80, 40))
-    
+
     # Update camera to follow player
     target_camera = bronze_player.rect.centerx - SCREEN_WIDTH // 3
     bronze_camera_x = max(0, min(target_camera, bronze_level_width - SCREEN_WIDTH))
-    
+
     # Draw platforms with camera offset
     for platform in bronze_platforms:
         screen_rect = platform.rect.copy()
         screen_rect.x -= int(bronze_camera_x)
         pygame.draw.rect(screen, (160, 100, 60), screen_rect)
         # Add platform detail
-        pygame.draw.line(screen, (140, 80, 40), (screen_rect.x, screen_rect.y), (screen_rect.x + screen_rect.width, screen_rect.y), 2)
-    
+        pygame.draw.line(
+            screen,
+            (140, 80, 40),
+            (screen_rect.x, screen_rect.y),
+            (screen_rect.x + screen_rect.width, screen_rect.y),
+            2,
+        )
+
     # Draw level end flag
     flag_x = bronze_level_width - int(bronze_camera_x) - 50
     if flag_x > -50 and flag_x < SCREEN_WIDTH + 50:
         pygame.draw.rect(screen, (180, 100, 50), (flag_x, SCREEN_HEIGHT - 150, 40, 140))
-        pygame.draw.polygon(screen, (255, 100, 0), [(flag_x + 40, SCREEN_HEIGHT - 150), (flag_x + 40, SCREEN_HEIGHT - 110), (flag_x + 100, SCREEN_HEIGHT - 130)])
-    
+        pygame.draw.polygon(
+            screen,
+            (255, 100, 0),
+            [
+                (flag_x + 40, SCREEN_HEIGHT - 150),
+                (flag_x + 40, SCREEN_HEIGHT - 110),
+                (flag_x + 100, SCREEN_HEIGHT - 130),
+            ],
+        )
+
     # Draw warriors with camera offset
     for warrior in bronze_warriors:
         warrior_screen_pos = warrior.rect.copy()
         warrior_screen_pos.x -= int(bronze_camera_x)
         if -50 < warrior_screen_pos.x < SCREEN_WIDTH + 50:
             screen.blit(warrior.image, warrior_screen_pos)
-    
+
     # Draw player
     player_screen_rect = bronze_player.rect.copy()
     player_screen_rect.x -= int(bronze_camera_x)
     screen.blit(bronze_player.image, player_screen_rect)
-    
+
     # Draw sword swing effect with camera offset
     if bronze_player.sword_swing and bronze_player.swing_timer > 0:
         bronze_player.draw_sword_swing(screen, int(bronze_camera_x))
-    
+
     # Draw HUD
     health_text = font_small.render(f"Health: {bronze_player.health}", True, (255, 255, 255))
     score_text = font_small.render(f"Score: {bronze_player.score}", True, (255, 255, 255))
     progress = int((bronze_player.rect.x / bronze_level_width) * 100)
     progress_text = font_small.render(f"Progress: {progress}%", True, (100, 255, 100))
     wave_text = font_small.render(f"Wave: {bronze_wave}", True, (255, 200, 0))
-    phase_text = font_small.render("SIDE-SCROLLER | Reach the End! | ARROWS to Move | SPACE to Jump | S to Swing", True, (150, 200, 255))
+    phase_text = font_small.render(
+        "SIDE-SCROLLER | Reach the End! | ARROWS to Move | SPACE to Jump | S to Swing",
+        True,
+        (150, 200, 255),
+    )
     screen.blit(health_text, (10, 10))
     screen.blit(score_text, (10, 40))
     screen.blit(progress_text, (SCREEN_WIDTH - 250, 10))
     screen.blit(wave_text, (SCREEN_WIDTH - 250, 40))
     screen.blit(phase_text, (10, SCREEN_HEIGHT - 25))
 
+
 while running:
     clock.tick(FPS)
-    
+
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             running = False
@@ -1049,10 +1198,17 @@ while running:
             elif event.key == pygame.K_0 and game_state == DEV_MENU:
                 # Back to menu
                 game_state = MENU
-            elif event.key == pygame.K_s and game_state == PLAYING and game_phase == PHASE_BRONZE_AGE:
+            elif (
+                event.key == pygame.K_s and game_state == PLAYING and game_phase == PHASE_BRONZE_AGE
+            ):
                 # Sword swing in bronze age
                 bronze_player.swing_sword()
-            elif event.key == pygame.K_h and game_state == PLAYING and game_phase == PHASE_IRON_AGE and battle_active:
+            elif (
+                event.key == pygame.K_h
+                and game_state == PLAYING
+                and game_phase == PHASE_IRON_AGE
+                and battle_active
+            ):
                 # Battle action: heal
                 if current_battle.current_turn == "player":
                     current_battle.player_heal()
@@ -1107,7 +1263,7 @@ while running:
             alive = bronze_player.update(platform_list)
             if not alive:
                 game_state = GAME_OVER
-            
+
             # Check if reached level end
             if bronze_player.rect.x >= bronze_level_width - 100:
                 # Level complete - move to next wave or Iron Age
@@ -1117,7 +1273,7 @@ while running:
                     game_phase = PHASE_IRON_AGE
                     iron_player = IronPlayer()
                     iron_player.health = bronze_player.health  # Carry over health
-                    iron_player.score = bronze_player.score    # Carry over score
+                    iron_player.score = bronze_player.score  # Carry over score
                     iron_enemies.empty()
                     iron_enemy_groups.clear()
                     iron_wave = 1
@@ -1128,28 +1284,28 @@ while running:
                     bronze_camera_x = 0
                     bronze_warriors.empty()
                     spawn_bronze_warriors(bronze_wave)
-            
+
             # Update sword swing timer
             if bronze_player.sword_swing:
                 bronze_player.swing_timer -= 1
                 if bronze_player.swing_timer <= 0:
                     bronze_player.sword_swing = False
-            
+
             # Update warriors
             for warrior in bronze_warriors:
                 warrior.update(platform_list)
-            
+
             # Periodically spawn more warriors if cleared out
             if len(bronze_warriors) == 0:
                 spawn_bronze_warriors(bronze_wave)
-            
+
             # Check sword-warrior collisions (swing attacks)
             sword_rect = bronze_player.get_sword_rect()
             for warrior in bronze_warriors:
                 if warrior.rect.colliderect(sword_rect):
                     if warrior.take_damage():
                         bronze_player.score += warrior.points
-            
+
             # Check stomp collisions (jumping on enemy heads)
             feet_rect = bronze_player.get_feet_rect()
             for warrior in bronze_warriors:
@@ -1158,32 +1314,43 @@ while running:
                     warrior.take_damage()
                     bronze_player.score += warrior.points
                     bronze_player.velocity_y = -8  # Bounce the player up
-            
+
             # Check warrior-player collision (damage)
             if pygame.sprite.spritecollide(bronze_player, bronze_warriors, False):
                 bronze_player.health -= 1
                 if bronze_player.health <= 0:
                     game_state = GAME_OVER
-            
+
             draw_bronze_game()
-        
+
         elif game_phase == PHASE_IRON_AGE:
             # IRON AGE PHASE (2D RPG with turn-based battles)
             if not battle_active:
                 # Exploration mode
                 iron_player.update([])
-                
+
                 # Update camera to follow player
-                iron_camera_x = max(0, min(iron_player.rect.centerx - SCREEN_WIDTH // 2, iron_map_width - SCREEN_WIDTH))
-                iron_camera_y = max(0, min(iron_player.rect.centery - SCREEN_HEIGHT // 2, iron_map_height - SCREEN_HEIGHT))
-                
+                iron_camera_x = max(
+                    0,
+                    min(
+                        iron_player.rect.centerx - SCREEN_WIDTH // 2, iron_map_width - SCREEN_WIDTH
+                    ),
+                )
+                iron_camera_y = max(
+                    0,
+                    min(
+                        iron_player.rect.centery - SCREEN_HEIGHT // 2,
+                        iron_map_height - SCREEN_HEIGHT,
+                    ),
+                )
+
                 # Check for collisions with enemy groups (start battle)
                 for group in iron_enemy_groups:
                     # Check if player is adjacent/close to enemy group
                     for enemy in group:
                         dx = iron_player.rect.centerx - enemy.rect.centerx
                         dy = iron_player.rect.centery - enemy.rect.centery
-                        distance = math.sqrt(dx*dx + dy*dy)
+                        distance = math.sqrt(dx * dx + dy * dy)
                         if distance < 80:  # Collision distance for battle start
                             # Start a battle
                             current_battle = BattleState(group)
@@ -1191,7 +1358,7 @@ while running:
                             break
                     if battle_active:
                         break
-                
+
                 # Check if reached level end
                 if iron_player.rect.x > iron_map_width - 100:
                     iron_wave += 1
@@ -1204,34 +1371,39 @@ while running:
                         iron_enemies.empty()
                         iron_enemy_groups.clear()
                         spawn_iron_enemies()
-                
+
                 draw_iron_game()
             else:
                 # Battle mode
                 draw_battle_screen(current_battle)
-                
+
                 # Check if battle is over
                 if current_battle.battle_over:
                     if current_battle.player_won:
-                        iron_player.score += sum(enemy.points for enemy in current_battle.enemies) * 2
+                        iron_player.score += (
+                            sum(enemy.points for enemy in current_battle.enemies) * 2
+                        )
                         iron_player.health = min(iron_player.health + 1, iron_player.max_health)
 
                         # Remove the defeated enemy group from the map
                         for group in iron_enemy_groups:
-                            if all(enemy in current_battle.enemies or enemy.health <= 0 for enemy in group):
+                            if all(
+                                enemy in current_battle.enemies or enemy.health <= 0
+                                for enemy in group
+                            ):
                                 iron_enemy_groups.remove(group)
                                 for enemy in group:
                                     enemy.kill()
                                 break
                     else:
                         game_state = GAME_OVER
-                    
+
                     battle_active = False
                     current_battle = None
 
     elif game_state == MENU:
         draw_menu()
-    
+
     elif game_state == DEV_MENU:
         draw_dev_menu()
 
