@@ -264,7 +264,7 @@ class BronzeWarrior(pygame.sprite.Sprite):
         super().__init__()
         self.warrior_type = warrior_type
         self.health = 2 if warrior_type == "heavy" else 1
-        self.speed = 1.5 if warrior_type == "heavy" else 2.5
+        self.speed = 1.0 if warrior_type == "heavy" else 1.8
         self.direction = move_direction  # Direction to move (-1 for left, 1 for right)
 
         if warrior_type == "heavy":
@@ -664,8 +664,8 @@ class BattleState:
     def enemy_attack(self):
         """All remaining enemies attack"""
         for enemy in self.enemies:
-            damage = random.randint(1, enemy.attack_power + 2) - 1  # Min 1 damage
-            self.player_health -= max(1, damage)
+            damage = max(1, random.randint(1, enemy.attack_power + 2) - 1)
+            self.player_health -= damage
             self.battle_log.append(f"Enemy {enemy.enemy_type} attacks for {damage} damage!")
 
         if self.player_health <= 0:
@@ -864,15 +864,13 @@ def draw_game():
 
     all_sprites.draw(screen)
 
-    # Draw HUD with top-down view indicator
+    # Draw HUD
     health_text = font_small.render(f"Health: {player.health}", True, (255, 255, 255))
     score_text = font_small.render(f"Score: {player.score}", True, (255, 255, 255))
     wave_text = font_small.render(f"Wave: {wave_num}", True, (255, 255, 255))
-    view_text = font_small.render("TOP-DOWN VIEW", True, (150, 200, 255))
     screen.blit(health_text, (10, 10))
     screen.blit(score_text, (10, 40))
     screen.blit(wave_text, (SCREEN_WIDTH - 150, 10))
-    screen.blit(view_text, (SCREEN_WIDTH // 2 - 70, 10))
 
 
 def draw_menu():
