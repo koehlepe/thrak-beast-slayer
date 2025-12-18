@@ -23,6 +23,30 @@ from config import (
     PLAYING,
     GAME_OVER,
     DEV_MENU,
+    STONE_AGE_WAVES,
+    PLAYER_HEALTH_STONE,
+    PLAYER_SPEED_STONE,
+    SPEAR_SPEED,
+    SPAWN_COOLDOWN,
+    BRONZE_AGE_WAVES,
+    BRONZE_LEVEL_WIDTH,
+    PLAYER_HEALTH_BRONZE,
+    PLAYER_SPEED_BRONZE,
+    GRAVITY,
+    JUMP_POWER,
+    IRON_AGE_WAVES,
+    IRON_MAP_WIDTH,
+    IRON_MAP_HEIGHT,
+    PLAYER_HEALTH_IRON,
+    PLAYER_SPEED_IRON,
+    BATTLE_COLLISION_DISTANCE,
+    ENEMY_TYPES,
+    INITIAL_ENEMY_COUNT,
+    MAX_ENEMIES_PER_WAVE,
+    IRON_ENEMY_TYPES,
+    IRON_SPAWN_GROUPS,
+    IRON_GROUP_SIZE_MIN,
+    IRON_GROUP_SIZE_MAX,
 )
 
 pygame.init()
@@ -56,8 +80,8 @@ class Player(pygame.sprite.Sprite):
         pygame.draw.line(self.image, (80, 40, 20), (18, 40), (15, 55), 4)
         pygame.draw.line(self.image, (80, 40, 20), (32, 40), (35, 55), 4)
         self.rect = self.image.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT - 50))
-        self.speed = 5
-        self.health = 3
+        self.speed = PLAYER_SPEED_STONE
+        self.health = PLAYER_HEALTH_STONE
         self.score = 0
 
     def update(self) -> None:
@@ -88,7 +112,7 @@ class Spear(pygame.sprite.Sprite):
         # Feathers/fletching
         pygame.draw.polygon(self.image, (255, 200, 0), [(3, 20), (6, 28), (9, 20)])
         self.rect = self.image.get_rect(centerx=x, bottom=y)
-        self.speed = 7
+        self.speed = SPEAR_SPEED
 
     def update(self) -> None:
         """Move spear upward and remove if off-screen."""
@@ -277,7 +301,7 @@ class BronzeWarrior(pygame.sprite.Sprite):
 
         self.rect = self.image.get_rect(topleft=(x, y))
         self.velocity_y = 0
-        self.gravity = 0.5
+        self.gravity = GRAVITY
         self.on_ground = False
         self.direction = 1 if x < SCREEN_WIDTH // 2 else -1
         self.jump_timer = 0
@@ -358,10 +382,10 @@ class BronzePlayer(pygame.sprite.Sprite):
         self.rect = self.image.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT - 100))
         self.velocity_y = 0
         self.velocity_x = 0
-        self.gravity = 0.5
+        self.gravity = GRAVITY
         self.on_ground = False
-        self.speed = 4
-        self.health = 3
+        self.speed = PLAYER_SPEED_BRONZE
+        self.health = PLAYER_HEALTH_BRONZE
         self.score = 0
         self.sword_swing = False
         self.swing_timer = 0
@@ -424,7 +448,7 @@ class BronzePlayer(pygame.sprite.Sprite):
 
         # Jump
         if keys[pygame.K_SPACE] and self.on_ground:
-            self.velocity_y = -12
+            self.velocity_y = -JUMP_POWER
             self.on_ground = False
 
         # Level bounds - allow player to move across entire level
@@ -485,9 +509,9 @@ class IronPlayer(pygame.sprite.Sprite):
         self.image = pygame.Surface((40, 40), pygame.SRCALPHA)
         self.draw_sprite()
         self.rect = self.image.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2))
-        self.speed = 4
-        self.health = 5
-        self.max_health = 5
+        self.speed = PLAYER_SPEED_IRON
+        self.health = PLAYER_HEALTH_IRON
+        self.max_health = PLAYER_HEALTH_IRON
         self.score = 0
         self.facing = (1, 0)  # (x, y) direction
 
@@ -554,11 +578,11 @@ class IronEnemy(pygame.sprite.Sprite):
     def __init__(self, x, y, enemy_type="warrior"):
         super().__init__()
         self.enemy_type = enemy_type
-        self.health = {"warrior": 10, "knight": 15, "warlord": 20}.get(enemy_type, 10)
+        self.health = IRON_ENEMY_TYPES[enemy_type]["health"]
         self.max_health = self.health
-        self.attack_power = {"warrior": 2, "knight": 3, "warlord": 4}.get(enemy_type, 2)
-        self.defense = {"warrior": 1, "knight": 2, "warlord": 3}.get(enemy_type, 1)
-        self.points = {"warrior": 50, "knight": 100, "warlord": 200}.get(enemy_type, 50)
+        self.attack_power = IRON_ENEMY_TYPES[enemy_type]["attack"]
+        self.defense = IRON_ENEMY_TYPES[enemy_type]["defense"]
+        self.points = IRON_ENEMY_TYPES[enemy_type]["points"]
 
         self.image = pygame.Surface((40, 40), pygame.SRCALPHA)
         self.draw_sprite()
@@ -655,14 +679,14 @@ class BattleState:
 
 def spawn_iron_enemies():
     """Spawn enemy groups throughout the Iron Age map"""
-    for i in range(5):
+    for i in range(IRON_SPAWN_GROUPS):
         x = random.randint(100, iron_map_width - 150)
         y = random.randint(100, iron_map_height - 150)
 
-        group_size = random.randint(1, 3)
+        group_size = random.randint(IRON_GROUP_SIZE_MIN, IRON_GROUP_SIZE_MAX)
         enemy_group = []
         for j in range(group_size):
-            enemy_type = random.choice(["warrior", "knight", "warlord"])
+            enemy_type = random.choice(list(IRON_ENEMY_TYPES.keys()))
             enemy = IronEnemy(x + j * 50, y, enemy_type)
             enemy_group.append(enemy)
             iron_enemies.add(enemy)
@@ -758,11 +782,10 @@ def draw_battle_screen(battle):
 
 def spawn_wave(wave_num):
 
-    enemy_types = ["tiger", "wolf", "mammoth", "scorpion", "pterodactyl"]
-    num_enemies = min(3 + wave_num, 8)
+    num_enemies = min(INITIAL_ENEMY_COUNT + wave_num, MAX_ENEMIES_PER_WAVE)
 
     for i in range(num_enemies):
-        enemy_type = random.choice(enemy_types)
+        enemy_type = random.choice(ENEMY_TYPES)
         x = random.randint(50, SCREEN_WIDTH - 100)
         y = random.randint(-200, -50)
         enemy = Enemy(x, y, enemy_type)
@@ -969,15 +992,15 @@ bronze_platforms = pygame.sprite.Group()
 bronze_warriors = pygame.sprite.Group()
 bronze_player = None
 bronze_wave = 1
-bronze_level_width = 3000  # Total level width
+bronze_level_width = BRONZE_LEVEL_WIDTH
 bronze_camera_x = 0  # Camera position for scrolling
 
 # Iron age variables
 iron_player = None
 iron_enemies = pygame.sprite.Group()
 iron_enemy_groups = []
-iron_map_width = 2000
-iron_map_height = 1500
+iron_map_width = IRON_MAP_WIDTH
+iron_map_height = IRON_MAP_HEIGHT
 iron_camera_x = 0
 iron_camera_y = 0
 iron_wave = 1
@@ -1190,7 +1213,6 @@ while running:
                 game_state = PLAYING
                 game_phase = PHASE_IRON_AGE
                 iron_player = IronPlayer()
-                iron_player.health = 5
                 iron_player.score = 0
                 iron_enemies.empty()
                 iron_enemy_groups.clear()
@@ -1244,7 +1266,7 @@ while running:
             # Check if wave is complete
             if len(enemies) == 0 and pygame.time.get_ticks() - wave_timer > WAVE_DELAY:
                 wave_num += 1
-                if wave_num > 5:
+                if wave_num > STONE_AGE_WAVES:
                     # Transition to Bronze Age
                     game_phase = PHASE_BRONZE_AGE
                     bronze_player = BronzePlayer()
@@ -1270,12 +1292,11 @@ while running:
             if bronze_player.rect.x >= bronze_level_width - 100:
                 # Level complete - move to next wave or Iron Age
                 bronze_wave += 1
-                if bronze_wave > 3:  # 3 waves of Bronze Age
+                if bronze_wave > BRONZE_AGE_WAVES:  # Bronze Age wave limit
                     # Transition to Iron Age
                     game_phase = PHASE_IRON_AGE
                     iron_player = IronPlayer()
-                    iron_player.health = bronze_player.health  # Carry over health
-                    iron_player.score = bronze_player.score  # Carry over score
+                    iron_player.score = bronze_player.score  # Carry over score only
                     iron_enemies.empty()
                     iron_enemy_groups.clear()
                     iron_wave = 1
@@ -1353,7 +1374,7 @@ while running:
                         dx = iron_player.rect.centerx - enemy.rect.centerx
                         dy = iron_player.rect.centery - enemy.rect.centery
                         distance = math.sqrt(dx * dx + dy * dy)
-                        if distance < 80:  # Collision distance for battle start
+                        if distance < BATTLE_COLLISION_DISTANCE:  # Collision distance for battle start
                             # Start a battle
                             current_battle = BattleState(group)
                             battle_active = True
@@ -1364,7 +1385,7 @@ while running:
                 # Check if reached level end
                 if iron_player.rect.x > iron_map_width - 100:
                     iron_wave += 1
-                    if iron_wave > 3:  # 3 waves of Iron Age
+                    if iron_wave > IRON_AGE_WAVES:  # Iron Age wave limit
                         game_state = GAME_OVER  # Victory state
                     else:
                         # Reset for next wave
