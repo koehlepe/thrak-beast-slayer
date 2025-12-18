@@ -1145,6 +1145,7 @@ while running:
                     game_state = PLAYING
                     game_phase = PHASE_STONE_AGE
                     wave_num = 1
+                    all_sprites.empty()
                     player = Player()
                     all_sprites.add(player)
                     player.health = 3
@@ -1164,6 +1165,7 @@ while running:
                 game_state = PLAYING
                 game_phase = PHASE_STONE_AGE
                 wave_num = 1
+                all_sprites.empty()
                 player = Player()
                 all_sprites.add(player)
                 player.health = 3
