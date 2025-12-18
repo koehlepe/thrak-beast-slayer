@@ -996,12 +996,13 @@ while running:
                     game_state = PLAYING
                     game_phase = PHASE_STONE_AGE
                     wave_num = 1
+                    all_sprites.empty()
+                    enemies.empty()
+                    spears.empty()
                     player = Player()
                     all_sprites.add(player)
                     player.health = 3
                     player.score = 0
-                    enemies.empty()
-                    spears.empty()
                     wave_timer = pygame.time.get_ticks() - WAVE_DELAY
                     spawn_wave(wave_num)
                 elif game_state == PLAYING and game_phase == PHASE_IRON_AGE and battle_active:
