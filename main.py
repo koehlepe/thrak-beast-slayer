@@ -391,6 +391,7 @@ class BronzePlayer(pygame.sprite.Sprite):
         self.swing_timer = 0
         self.swing_duration = 8
         self.facing = 1  # 1 = right, -1 = left
+        self.space_prev_pressed = False  # Track space key state to prevent continuous jumping
 
     def redraw_sprite(self):
         """Redraw the sprite based on facing direction"""
@@ -446,10 +447,12 @@ class BronzePlayer(pygame.sprite.Sprite):
                     self.velocity_y = 0
                     self.on_ground = True
 
-        # Jump
-        if keys[pygame.K_SPACE] and self.on_ground:
+        # Jump (only on key press, not while holding)
+        space_pressed = keys[pygame.K_SPACE]
+        if space_pressed and not self.space_prev_pressed and self.on_ground:
             self.velocity_y = -JUMP_POWER
             self.on_ground = False
+        self.space_prev_pressed = space_pressed
 
         # Level bounds - allow player to move across entire level
         if self.rect.left < 0:
