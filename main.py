@@ -60,6 +60,110 @@ font_large: pygame.font.Font = pygame.font.Font(None, 72)
 font_medium: pygame.font.Font = pygame.font.Font(None, 36)
 font_small: pygame.font.Font = pygame.font.Font(None, 24)
 
+# --- Audio setup (Stone Age music & SFX) ---
+import os
+import wave
+import struct
+
+SOUND_DIR = os.path.join("assets", "sounds")
+STONE_MUSIC_FILE = os.path.join(SOUND_DIR, "stone_age_music.wav")
+SPEAR_SFX_FILE = os.path.join(SOUND_DIR, "spear.wav")
+HIT_SFX_FILE = os.path.join(SOUND_DIR, "hit.wav")
+AUDIO_SAMPLE_RATE = 44100
+
+
+def _generate_tone_wav(path: str, freq: float = 440.0, duration: float = 0.3, volume: float = 0.3, sample_rate: int = AUDIO_SAMPLE_RATE) -> None:
+    """Generate a simple sine wave WAV file at the given path."""
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    n_samples = int(duration * sample_rate)
+    with wave.open(path, "w") as wf:
+        wf.setnchannels(1)
+        wf.setsampwidth(2)  # 16-bit
+        wf.setframerate(sample_rate)
+        for i in range(n_samples):
+            t = i / sample_rate
+            sample = volume * math.sin(2 * math.pi * freq * t)
+            val = int(sample * 32767.0)
+            wf.writeframes(struct.pack("<h", val))
+
+
+def _ensure_audio_assets() -> None:
+    """Create a few small WAV files on disk if they don't already exist.
+
+    This avoids adding binary assets to the repo while still providing
+    audible feedback for gameplay. The generated sounds are intentionally
+    short and loop-friendly for a retro feel.
+    """
+    os.makedirs(SOUND_DIR, exist_ok=True)
+
+    # Simple looping melody for Stone Age background music
+    if not os.path.exists(STONE_MUSIC_FILE):
+        freqs = [220, 246, 196, 174]
+        with wave.open(STONE_MUSIC_FILE, "w") as wf:
+            wf.setnchannels(1)
+            wf.setsampwidth(2)
+            wf.setframerate(AUDIO_SAMPLE_RATE)
+            for f in freqs:
+                n = int(0.6 * AUDIO_SAMPLE_RATE)
+                for i in range(n):
+                    t = i / AUDIO_SAMPLE_RATE
+                    sample = 0.25 * math.sin(2 * math.pi * f * t)
+                    val = int(sample * 32767.0)
+                    wf.writeframes(struct.pack("<h", val))
+
+    # Short spear throw 'whoosh' if missing
+    if not os.path.exists(SPEAR_SFX_FILE):
+        _generate_tone_wav(SPEAR_SFX_FILE, freq=1200.0, duration=0.08, volume=0.5)
+
+    # Short hit 'thud' if missing
+    if not os.path.exists(HIT_SFX_FILE):
+        _generate_tone_wav(HIT_SFX_FILE, freq=300.0, duration=0.12, volume=0.5)
+
+
+# Initialize mixer and load assets (safe fallbacks if audio unavailable)
+try:
+    pygame.mixer.init(frequency=AUDIO_SAMPLE_RATE)
+    _ensure_audio_assets()
+    _STONE_MUSIC_LOADED = False
+    try:
+        pygame.mixer.music.load(STONE_MUSIC_FILE)
+        _STONE_MUSIC_LOADED = True
+    except Exception:
+        _STONE_MUSIC_LOADED = False
+
+    try:
+        spear_sfx = pygame.mixer.Sound(SPEAR_SFX_FILE)
+    except Exception:
+        spear_sfx = None
+
+    try:
+        hit_sfx = pygame.mixer.Sound(HIT_SFX_FILE)
+    except Exception:
+        hit_sfx = None
+except Exception:
+    spear_sfx = None
+    hit_sfx = None
+    _STONE_MUSIC_LOADED = False
+
+
+def play_stone_music() -> None:
+    """Start looping Stone Age background music if available."""
+    if _STONE_MUSIC_LOADED:
+        try:
+            pygame.mixer.music.play(-1)
+        except Exception:
+            pass
+
+
+def stop_music() -> None:
+    """Stop any currently playing music."""
+    try:
+        pygame.mixer.music.stop()
+    except Exception:
+        pass
+
+# --- end audio setup ---
+
 
 # Audio: Generate simple sound effects using numpy and pygame.mixer
 def generate_tone(frequency: float, duration: float, sample_rate: int = 22050) -> pygame.mixer.Sound:
@@ -161,6 +265,12 @@ class Player(pygame.sprite.Sprite):
         spear = Spear(self.rect.centerx, self.rect.top)
         all_sprites.add(spear)
         spears.add(spear)
+        # Play spear SFX if available
+        try:
+            if spear_sfx:
+                spear_sfx.play()
+        except NameError:
+            pass
 
 
 class Spear(pygame.sprite.Sprite):
@@ -313,9 +423,24 @@ class Enemy(pygame.sprite.Sprite):
             self.kill()
 
     def take_damage(self) -> bool:
-        """Reduce health by 1 and return True if enemy defeated."""
+        """Reduce health by 1 and return True if enemy defeated.
+
+        Plays a short hit SFX if available.
+        """
+        try:
+            if hit_sfx:
+                hit_sfx.play()
+        except NameError:
+            pass
+
         self.health -= 1
         if self.health <= 0:
+            # Optional death cue (re-uses hit cue)
+            try:
+                if hit_sfx:
+                    hit_sfx.play()
+            except NameError:
+                pass
             self.kill()
             return True
         return False
@@ -1242,12 +1367,22 @@ while running:
                     spears.empty()
                     wave_timer = pygame.time.get_ticks() - WAVE_DELAY
                     spawn_wave(wave_num)
+                    # Start Stone Age music (if available)
+                    try:
+                        play_stone_music()
+                    except NameError:
+                        pass
                 elif game_state == PLAYING and game_phase == PHASE_IRON_AGE and battle_active:
                     # Battle action: attack
                     if current_battle.current_turn == "player":
                         current_battle.player_attack()
                 elif game_state == GAME_OVER:
                     game_state = MENU
+                    # Ensure music stops when returning to menu
+                    try:
+                        stop_music()
+                    except NameError:
+                        pass
             elif event.key == pygame.K_1 and game_state == DEV_MENU:
                 # Stone Age testing
                 game_state = PLAYING
@@ -1262,6 +1397,11 @@ while running:
                 spears.empty()
                 wave_timer = pygame.time.get_ticks() - WAVE_DELAY
                 spawn_wave(wave_num)
+                # Start Stone Age music for dev-mode spawn
+                try:
+                    play_stone_music()
+                except NameError:
+                    pass
             elif event.key == pygame.K_2 and game_state == DEV_MENU:
                 # Bronze Age testing
                 game_state = PLAYING
@@ -1337,6 +1477,11 @@ while running:
                 wave_num += 1
                 if wave_num > STONE_AGE_WAVES:
                     # Transition to Bronze Age
+                    # Stop Stone Age music
+                    try:
+                        stop_music()
+                    except NameError:
+                        pass
                     game_phase = PHASE_BRONZE_AGE
                     bronze_player = BronzePlayer()
                     bronze_player.score = player.score

@@ -78,6 +78,7 @@ make test
 
 ### Game Phases
 1. **Stone Age** - Defend against beasts (top-down)
+   - Includes looping background music and short SFX. Generated WAVs are placed in `assets/sounds/` on first run.
 2. **Bronze Age** - Platformer with warriors
 3. **Iron Age** - RPG with turn-based battles
 

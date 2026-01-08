@@ -46,6 +46,11 @@ python main.py
 - **SPACE** - Throw spear at enemies
 - Destroy all enemies to advance to the next wave
 
+**Audio** ✅
+- Stone Age includes a looping background track and short SFX for spear throws and hits.
+- On first run small WAV assets are generated at `assets/sounds/` (files: `stone_age_music.wav`, `spear.wav`, `hit.wav`).
+- To use custom audio, replace those files and restart the game.
+
 #### Bronze Age (Platformer)
 - **LEFT/RIGHT Arrow Keys** - Move horizontally
 - **SPACE** - Jump
