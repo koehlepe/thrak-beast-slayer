@@ -649,7 +649,7 @@ class BattleState:
 
     def player_heal(self):
         """Player heals some health"""
-        heal_amount = random.randint(2, 4)
+        heal_amount = random.randint(2, 7)
         self.player_health = min(self.player_health + heal_amount, self.player_max_health)
         self.battle_log.append(f"You heal for {heal_amount} health!")
         self.end_player_turn()
@@ -1248,7 +1248,7 @@ while running:
             keys = pygame.key.get_pressed()
             if keys[pygame.K_SPACE] and shoot_cooldown <= 0:
                 player.shoot()
-                shoot_cooldown = 10
+                shoot_cooldown = 30
 
             # Collision detection: spears hitting enemies
             for spear in spears:
