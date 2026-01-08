@@ -9,6 +9,7 @@ Features three distinct gameplay phases across historical eras:
 import pygame
 import random
 import math
+import numpy as np
 from typing import Optional, List, Tuple
 
 from config import (
@@ -50,6 +51,7 @@ from config import (
 )
 
 pygame.init()
+pygame.mixer.init()
 
 screen: pygame.Surface = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
 pygame.display.set_caption("THRAK: Beast Slayer")
@@ -57,6 +59,68 @@ clock: pygame.time.Clock = pygame.time.Clock()
 font_large: pygame.font.Font = pygame.font.Font(None, 72)
 font_medium: pygame.font.Font = pygame.font.Font(None, 36)
 font_small: pygame.font.Font = pygame.font.Font(None, 24)
+
+
+# Audio: Generate simple sound effects using numpy and pygame.mixer
+def generate_tone(frequency: float, duration: float, sample_rate: int = 22050) -> pygame.mixer.Sound:
+    """Generate a simple tone sound effect."""
+    frames = int(duration * sample_rate)
+    arr = np.sin(2.0 * np.pi * frequency * np.linspace(0, duration, frames))
+    arr = (arr * 32767).astype(np.int16)
+    arr = np.repeat(arr.reshape(frames, 1), 2, axis=1)
+    sound = pygame.mixer.Sound(buffer=arr.tobytes())
+    sound.set_volume(0.3)
+    return sound
+
+
+def generate_shoot_sound() -> pygame.mixer.Sound:
+    """Generate a sharp shooting sound."""
+    return generate_tone(800, 0.1)
+
+
+def generate_hit_sound() -> pygame.mixer.Sound:
+    """Generate a hit/impact sound."""
+    sample_rate = 22050
+    duration = 0.15
+    frames = int(duration * sample_rate)
+    # Descending frequency for hit sound
+    frequencies = np.linspace(600, 200, frames)
+    t = np.linspace(0, duration, frames)
+    arr = np.sin(2.0 * np.pi * frequencies * t / frames)
+    arr = (arr * 32767).astype(np.int16)
+    arr = np.repeat(arr.reshape(frames, 1), 2, axis=1)
+    sound = pygame.mixer.Sound(buffer=arr.tobytes())
+    sound.set_volume(0.3)
+    return sound
+
+
+def generate_death_sound() -> pygame.mixer.Sound:
+    """Generate an enemy death sound."""
+    sample_rate = 22050
+    duration = 0.3
+    frames = int(duration * sample_rate)
+    # Descending pitch for death sound
+    frequencies = np.linspace(400, 100, frames)
+    t = np.linspace(0, duration, frames)
+    arr = np.sin(2.0 * np.pi * frequencies * t / frames)
+    arr = (arr * 32767).astype(np.int16)
+    arr = np.repeat(arr.reshape(frames, 1), 2, axis=1)
+    sound = pygame.mixer.Sound(buffer=arr.tobytes())
+    sound.set_volume(0.3)
+    return sound
+
+
+def generate_damage_sound() -> pygame.mixer.Sound:
+    """Generate a player damage sound."""
+    return generate_tone(300, 0.2)
+
+
+# Load audio assets
+sound_shoot = generate_shoot_sound()
+sound_hit = generate_hit_sound()
+sound_death = generate_death_sound()
+sound_damage = generate_damage_sound()
+
 
 
 class Player(pygame.sprite.Sprite):
@@ -1248,6 +1312,7 @@ while running:
             keys = pygame.key.get_pressed()
             if keys[pygame.K_SPACE] and shoot_cooldown <= 0:
                 player.shoot()
+                sound_shoot.play()
                 shoot_cooldown = 30
 
             # Collision detection: spears hitting enemies
@@ -1255,11 +1320,14 @@ while running:
                 hit_enemies = pygame.sprite.spritecollide(spear, enemies, False)
                 for enemy in hit_enemies:
                     spear.kill()
+                    sound_hit.play()
                     if enemy.take_damage():
                         player.score += enemy.points
+                        sound_death.play()
 
             # Collision detection: enemy touching player
             if pygame.sprite.spritecollide(player, enemies, False):
+                sound_damage.play()
                 player.health -= 1
                 if player.health <= 0:
                     game_state = GAME_OVER
